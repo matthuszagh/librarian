@@ -1,0 +1,162 @@
+* Introduction
+~librarian~ is a tool for managing a library of documents and other media. It is typically used for documents (such as PDF, epub, etc.), video files, and webpage archives, though it will work with any text or binary file or directory. Its primary goals are to:
+
+1. standardize file names and make the naming pattern declarative,
+2. make document hierarchical organization declarative and compatible with a tags-based approach to classifying resources,
+3. and provide a persistant file path for each file.
+
+These goals and ~librarian~'s means of accomplishing them are discussed below.
+
+* Basic Concepts
+~librarian~ works on a directory conforming to a basic structure, which it calls a "library". Let's assume this library is stored in a directory named ~library~, though it can be any valid directory name. A library's structure should conform to:
+
+#+begin_src bash :eval no
+library
+├── config.json
+└── contents
+#+end_src
+
+~config.json~ is a JSON configuration file where ~librarian~ looks for declarative information about the library. It's name can be changed, if desired.
+
+~contents~ is a directory containing a flat hierarchy of documents and directories. Each of the files or directories in ~contents~ is called a "resource". More specifically, they are called "original resources", since they are the original copy of this resource. Additional copies will be made, as we'll see later in "instances". The flat hierarchy means that all resources must be located directly within ~contents~ and cannot be nested. Some resources (e.g., archived web pages) are directories themselves and may also contain directories. That's fine. A directory and all its contained files (traversed recursively) is considered a single resource and in many respects will be treated identically to a single-file document. The name of the ~contents~ directory is not important, as long as it is consistent with the choice in the configuration file.
+
+The ~config.json~ file contains three major subsections. A simple example file is shown below.
+
+#+begin_src json :eval no
+{
+    "tags": {
+        "math": {
+            "calculus": {},
+            "algebra": {},
+            "general": {}
+        },
+        "science": {
+            "physics": {
+                "quantum mechanics": {}
+            },
+            "chemistry": {
+            },
+            "biology": {
+            }
+        },
+        "engineering": {
+            "electronics": {
+                "general": {}
+            },
+            "computing": {
+                "algorithms": {}
+            }
+        }
+    },
+
+    "instances": {
+        "primary": {
+            "instantiate tags": "primary",
+            "directory name space delimeter": "_",
+            "file name pattern": "@title@ (@authors[0]:last@, @edition@e - @year@).@extension@",
+            "filter": ""
+        },
+        "deduplicating": {
+            "instantiate tags": "all",
+            "directory name space delimeter": " ",
+            "file name pattern": "@title@ (@authors[0]:last@, @edition@e - @year@).@extension@",
+            "filter": {
+                "tags": "*",
+                "extension": "pdf",
+                "size": "< 500"
+            }
+        }
+    },
+
+    "contents": {
+        "1f41a02ac620f0388a8e40454b48f67137820dcb": {
+            "title": "Microelectronic Circuits",
+            "authors": [
+                {
+                    "first": "Adel",
+                    "middle": "S.",
+                    "last": "Sedra"
+                },
+                {
+                    "first": "Kenneth",
+                    "middle": "C.",
+                    "last": "Smith"
+                }
+            ],
+            "edition": 7,
+            "year": 2014,
+            "publisher": "Oxford University Press",
+            "tags": ["electronics", "electronics:general"],
+            "checksum": "sha1-1f41a02ac620f0388a8e40454b48f67137820dcb",
+            "previous checksums": ["sha1-1f41a02ac620f0388a8e40454b48f67137820dcb"]
+        },
+        "2aec674c6d78a0a596529e1ef94f24c9ae625179": {
+            "title": "The Princeton Companion to Mathematics",
+            "authors": [
+                {
+                    "first": "Timothy",
+                    "middle": "",
+                    "last": "Gowers"
+                },
+                {
+                    "first": "June",
+                    "middle": "",
+                    "last": "Barrow-Green"
+                },
+                {
+                    "first": "Imre",
+                    "middle": "",
+                    "last": "Leader"
+                }
+            ],
+            "edition": 1,
+            "year": 2008,
+            "publisher": "Princeton University Press",
+            "tags": ["math", "math:general"],
+            "checksum": "sha1-2aec674c6d78a0a596529e1ef94f24c9ae625179",
+            "previous checksums": ["sha1-2aec674c6d78a0a596529e1ef94f24c9ae625179"]
+        }
+    }
+}
+#+end_src
+
+The first section is a hierarchy of tags. Zero or more tags are associated with each resource. ~librarian~ uses this hierarchy along with the tags associated with each resource to construct hierarchical directories of library files, called "instances".
+
+~librarian~ can create an instance anywhere within or outside the filesystem, though often an instance is placed in a subdirectory of the library. When an instance is created within the same filesystem as ~contents~, ~librarian~ will use hardlinks to avoid creating multiple copies of each file. In an instance, each file is placed according to its tags, the location of tags in the hierarchy and other information, which will be discussed momentarily. These files are called "clone resources", since they are content-identical copies of the "original resource".
+
+A standard instance places a file at the corresponding location for each of its tags. This means that many files will be placed at multiple locations within the instance. Fortunately, when possible, ~librarian~ uses hardlinks so that this file duplication does not use additional storage.
+
+Instances are customizable. In particular, many instances (especially those destined for cloud storage or similar), would prefer just a single copy of each file. This can be done with ~"instantiate tags": "primary"~, as shown in the example above. To place a file at each tag location, use "instantiate tags": "all". The primary tag is the first tag that appears in each file's list of tags. Instances also support filtering based on types of file, size, and tags. Moreover, they can specify the delimeter used for spaces in directory names and a file name pattern.
+
+The last section is the contents section. This contains an entry for each file in the ~contents~ subdirectory. If a file is contained in the subdirectory, but is not present in the configuration file, ~librarian~ will create a placeholder entry for you in the configuration file. The key for each entry is a checksum string based on the file's contents when the file was first registered. The checksum standard is unimportant, though ~librarian~ currently uses the SHA1 standard; we assume that the checksum of one algorithm will not collide with the checksum from another standard. This key is simply meant to uniquely and persistently identify the file.
+
+Each entry contains a number of other keys, providing meta information about the file. One key is the "checksum" key, which gives the current checksum of the file's contents. There is also a "previous checksums" key, which gives all previous checksums in reverse order of when they were applicable (the file name will correspond to the last checksum in the list). ~librarian~ currently doesn't use the previous checksums, but it records it in case they're useful for other tools.
+
+There a number of other keys, such as "title", "authors", "year", "publisher", etc. These are used to populate parts of the file name in an instance, and to generate a bibliography.
+
+A new file is added as an original resource by adding it (with any name) to the contents directory. Running ~librarian register~ will compute the new file's checksum, add it to the configuration file and change the file's name to correspond to this initial checksum. This command will also add keys and their values to the entry for information it knows, and leave the information it doesn't know empty.
+
+** TODO should "original resource" be renamed to "primary resource"
+If so, we may want to change "clone resource" to "secondary resource".
+
+* Commands
+** register
+~librarian register~ registers all new original resources and adds information about them to the configuration file.
+
+** instantiate
+~librarian instantiate~ instantiates one or more instances from the configuration file.
+
+* File Naming
+Standardized and declarative file names mean that you specify a pattern for the name of a file (e.g., ~title (author, edition - year).extension~) and ~librarian~ will instantiate the corresponding file name for each file (and directory).
+
+** TODO file name pattern construction using Rust functions
+It would be useful to be able to call a user-defined rust function on a string in the file name pattern. For example ~@first_character(title)@ ...~. This would provide a lot more flexibility.
+
+* Bibliography Generation
+~librarian~ can automatically generate a BibTeX file for your library.
+
+* Sorting a Config File
+~librarian~ can sort a config file for you. This will sort each resource in the ~contents~ field in alphanumeric order.
+
+* TODO
+** should resource be renamed to reference?
