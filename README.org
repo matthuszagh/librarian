@@ -139,12 +139,26 @@ A new file is added as an original resource by adding it (with any name) to the 
 ** TODO should "original resource" be renamed to "primary resource"
 If so, we may want to change "clone resource" to "secondary resource".
 
-* Commands
-** register
+* Arguments
+** Subcommands
+*** register
 ~librarian register~ registers all new original resources and adds information about them to the configuration file.
 
-** instantiate
-~librarian instantiate~ instantiates one or more instances from the configuration file.
+*** instantiate
+~librarian instantiate~ instantiates one or more instances from the configuration file. If no additional arguments are given, this instantiates all instances. All additional positional arguments after instantiate will be treated as instances to instantiate. More than one instance can be specified. If at least one instance is provided, no other instances will be instantiated.
+
+** Options
+*** directory
+:PROPERTIES:
+:ID:       92a3f5c5-2c2a-4970-b3cb-be98efcfabda
+:END:
+~--directory~ or ~-d~. Specifies the library directory. If the value is a relative path, it is relative to the current working directory. It is an absolute path if the value is an absolute path. If omitted, it defaults to the current working directory.
+
+*** config
+~--config~ or ~-c~. Config file path. This defaults to ~config.json~ relative to the specified directory (see [[id:92a3f5c5-2c2a-4970-b3cb-be98efcfabda][directory]]) if omitted. If the value is a relative path it is relative to the specified directory. If the value is an absolute path, it is interpreted as an absolute path.
+
+*** resources
+~--resources~ or ~-r~. Resources directory path. This defaults to ~resources~ relative to the specified directory if omitted. If the value is a relative path it is relative to the specified directory. If the value is an absolute path, it is interpreted as an absolute path.
 
 * File Naming
 Standardized and declarative file names mean that you specify a pattern for the name of a file (e.g., ~title (author, edition - year).extension~) and ~librarian~ will instantiate the corresponding file name for each file (and directory).
