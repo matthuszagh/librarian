@@ -2,6 +2,7 @@ use clap::{app_from_crate, App, Arg};
 use serde_json::Value;
 use std::env;
 use std::fs::{read, read_to_string, OpenOptions};
+use std::io::Write;
 use std::path::PathBuf;
 use std::string::String;
 use std::vec::Vec;
@@ -16,31 +17,6 @@ use walkdir::WalkDir;
 //     checksum: String,
 //     previous_checksums: Vec<String>,
 // }
-
-// TODO inline this and use `expect`
-fn directory_file_hashes(directory: &PathBuf) -> Vec<(PathBuf, String)> {
-    let mut file_path_hash: Vec<(PathBuf, String)> = Vec::new();
-    let directory_files = WalkDir::new(directory).min_depth(1).max_depth(1);
-
-    for file in directory_files {
-        let file = match file {
-            Ok(f) => f,
-            Err(e) => panic!("{}", e),
-        };
-
-        let mut sha = sha1::Sha1::new();
-
-        let file_contents = match read(file.path()) {
-            Ok(x) => x,
-            Err(e) => panic!("{}", e),
-        };
-
-        sha.update(&file_contents);
-        file_path_hash.push((file.path().to_path_buf(), sha.digest().to_string()));
-    }
-
-    file_path_hash
-}
 
 fn main() {
     // parse command line arguments
@@ -108,25 +84,43 @@ fn main() {
         args.value_of("config")
             .expect("failed to retrieve config argument"),
     );
-    let config_file = OpenOptions::new()
+    let mut config_file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
         .open(&config_file_path)
         .expect("Failed to open or create config file");
 
-    let config_contents: String =
+    let mut config_contents: String =
         read_to_string(config_file_path).expect("failed to read config file into a string");
-    // println!("{:?}", config_contents);
 
-    // TODO handle empty file
-    let json_value: Value = match serde_json::from_str(&config_contents) {
-        Ok(x) => x,
-        Err(e) => panic!("{:?}", e),
-    };
-
-    let dir_file_hashes = directory_file_hashes(&resources_directory);
-    for file_hash in dir_file_hashes {
-        println!("{}: {}", file_hash.0.display(), file_hash.1);
+    // initialize the config file if it's empty
+    if config_contents == "" {
+        let new_config_contents =
+            b"{\n    \"tags\": {},\n\n    \"instances\": {},\n\n    \"resources\": {}\n\n}";
+        config_file
+            .write(new_config_contents)
+            .expect("failed to write initial contents to config file");
+        // config_contents needs the current valid file contents to parse json
+        config_contents = String::from(
+            std::str::from_utf8(new_config_contents)
+                .expect("could not convert &[u8] to valid UTF-8"),
+        );
     }
+
+    let json_value: Value =
+        serde_json::from_str(&config_contents).expect("config file contains invalid json");
+
+    let mut file_path_and_hash: Vec<(PathBuf, String)> = Vec::new();
+    WalkDir::new(resources_directory)
+        .min_depth(1)
+        .max_depth(1)
+        .into_iter()
+        .for_each(|f| {
+            let file = f.unwrap();
+            let file_contents = read(file.path()).expect("failed to read file");
+            let mut sha = sha1::Sha1::new();
+            sha.update(&file_contents);
+            file_path_and_hash.push((file.path().to_path_buf(), sha.digest().to_string()));
+        });
 }
