@@ -1,22 +1,38 @@
 use clap::{app_from_crate, App, Arg};
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
+use sha1::Sha1;
 use std::env;
 use std::fs::{read, read_to_string, OpenOptions};
 use std::io::Write;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::string::String;
 use std::vec::Vec;
 use walkdir::WalkDir;
-// use serde::{Deserialize, Serialize};
 
-// #[derive(serde::Serialize, Deserialize)]
-// struct Resource {
-//     title: String,
-//     authors: Vec<String>,
-//     tags: Vec<String>,
-//     checksum: String,
-//     previous_checksums: Vec<String>,
-// }
+#[derive(Serialize, Deserialize, Debug)]
+struct Name {
+    first: Option<String>,
+    middle: Option<String>,
+    last: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Resource {
+    title: String,
+    authors: Vec<Name>,
+    year: Option<i32>,
+    edition: Option<i32>,
+    publisher: Option<String>,
+    tags: Vec<String>,
+    checksum: String,
+    previous_checksums: Option<Vec<String>>,
+}
+
+struct FileHash {
+    file: PathBuf,
+    hash: Sha1,
+}
 
 fn main() {
     // parse command line arguments
@@ -108,19 +124,67 @@ fn main() {
         );
     }
 
-    let json_value: Value =
+    let mut json_value: Value =
         serde_json::from_str(&config_contents).expect("config file contains invalid json");
 
-    let mut file_path_and_hash: Vec<(PathBuf, String)> = Vec::new();
+    let mut file_hashes: Vec<FileHash> = Vec::new();
     WalkDir::new(resources_directory)
         .min_depth(1)
         .max_depth(1)
         .into_iter()
         .for_each(|f| {
             let file = f.unwrap();
-            let file_contents = read(file.path()).expect("failed to read file");
-            let mut sha = sha1::Sha1::new();
-            sha.update(&file_contents);
-            file_path_and_hash.push((file.path().to_path_buf(), sha.digest().to_string()));
+
+            if file.file_type().is_dir() {
+                file_hashes.push(FileHash {
+                    file: file.path().to_path_buf(),
+                    hash: directory_recursive_sha1(file.path()),
+                });
+            } else {
+                let file_contents = read(file.path()).expect("failed to read file");
+                let mut sha = sha1::Sha1::new();
+                sha.update(&file_contents);
+                file_hashes.push(FileHash {
+                    file: file.path().to_path_buf(),
+                    hash: sha,
+                });
+            }
         });
+
+    register_new_files(&mut json_value, file_hashes);
 }
+
+/// TODO
+fn directory_recursive_sha1(directory_path: &Path) -> Sha1 {
+    // TODO
+    Sha1::new()
+}
+
+/// TODO
+fn register_new_files(json: &mut Value, file_hashes: Vec<FileHash>) {
+    for file_hash in file_hashes {}
+
+    let resources = &json["resources"];
+    for (_, r) in resources
+        .as_object()
+        .expect("resources key is not an object")
+        .into_iter()
+    {
+        let resource: Resource = serde_json::from_value(r.clone()).unwrap();
+        println!("{:?}", resource.checksum);
+    }
+    // TODO
+}
+
+// fn hash_in_resources(hash: String, resources: serde_json::Value) -> bool {
+//     for resource in resources
+//         .as_object()
+//         .expect("resources key is not an object")
+//         .iter()
+//     {
+//         if resource.checksum == hash {
+//             return true;
+//         }
+//     }
+//     false
+// }
