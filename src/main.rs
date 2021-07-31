@@ -1,23 +1,29 @@
 use clap::{app_from_crate, App, Arg};
 use serde::{Deserialize, Serialize};
-use serde_json::Value;
 use sha1::Sha1;
+use std::collections::HashMap;
 use std::env;
-use std::fs::{read, read_to_string, OpenOptions};
-use std::io::Write;
+use std::fs::{read, OpenOptions};
+use std::io::prelude::*;
+use std::io::SeekFrom;
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::string::String;
 use std::vec::Vec;
 use walkdir::WalkDir;
 
-#[derive(Serialize, Deserialize, Debug)]
+/// TODO
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct Name {
     first: Option<String>,
     middle: Option<String>,
     last: Option<String>,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+/// Library "resource". This represents one unit of library content,
+/// whether a file (such as a document or video), or a directory
+/// containing the contents of a webpage.
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct Resource {
     title: String,
     authors: Vec<Name>,
@@ -26,17 +32,68 @@ struct Resource {
     publisher: Option<String>,
     tags: Vec<String>,
     checksum: String,
-    previous_checksums: Option<Vec<String>>,
+    historical_checksums: Vec<String>,
 }
 
-struct FileHash {
-    file: PathBuf,
-    hash: Sha1,
+/// Library "tag".
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Tag {}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+enum InstantiateTagsSpecifier {
+    Primary,
+    All,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Instance {
+    instantiate_tags: InstantiateTagsSpecifier,
+    directory_name_space_delimeter: char,
+    file_name_pattern: String,
+}
+
+/// Library "index" specified by the config file.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct LibraryIndex {
+    tags: Vec<Tag>,
+    instances: Vec<Instance>,
+    resources: Vec<Resource>,
 }
 
 fn main() {
-    // parse command line arguments
-    let args = app_from_crate!()
+    let args = parse_app_args();
+    let (resources_directory_path, config_file_path) = library_paths(&args);
+    let mut config_file = OpenOptions::new()
+        .read(true)
+        .write(true)
+        .create(true)
+        .truncate(true)
+        .open(&config_file_path)
+        .expect("Failed to open or create config file");
+    let mut library_index = config_file_library_index(&mut config_file);
+
+    if args.is_present("register") {
+        librarian_register(
+            &mut config_file,
+            &mut library_index,
+            &resources_directory_path,
+        );
+    } else if args.is_present("instantiate") {
+        librarian_instantiate(&library_index);
+    } else {
+        // when no subcommand is provided, register all new files and instantiate all directories
+        librarian_register(
+            &mut config_file,
+            &mut library_index,
+            &resources_directory_path,
+        );
+        librarian_instantiate(&library_index);
+    }
+}
+
+/// Parse and return command line arguments.
+fn parse_app_args() -> clap::ArgMatches {
+    app_from_crate!()
         .arg(
             Arg::new("directory")
                 .about("library directory path")
@@ -81,8 +138,12 @@ fn main() {
                 .about("instantiates one or more instances from the configuration file")
                 .long_about("TODO")
         )
-        .get_matches();
+        .get_matches()
+}
 
+/// Get the resources directory path and config file path according to
+/// the user's command line arguments.
+fn library_paths(args: &clap::ArgMatches) -> (PathBuf, PathBuf) {
     let directory: PathBuf = PathBuf::from(
         args.value_of("directory")
             .expect("failed to retrieve directory argument"),
@@ -100,35 +161,53 @@ fn main() {
         args.value_of("config")
             .expect("failed to retrieve config argument"),
     );
-    let mut config_file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .open(&config_file_path)
-        .expect("Failed to open or create config file");
 
-    let mut config_contents: String =
-        read_to_string(config_file_path).expect("failed to read config file into a string");
+    (resources_directory, config_file_path)
+}
+
+/// JSON value of the config file contents. This creates and properly
+/// initializes the config file if it doesn't exist or is empty.
+fn config_file_library_index(config_file: &mut std::fs::File) -> LibraryIndex {
+    let mut config_contents = String::new();
+    config_file
+        .read_to_string(&mut config_contents)
+        .expect("failed to read config file into a string");
 
     // initialize the config file if it's empty
     if config_contents == "" {
-        let new_config_contents =
-            b"{\n    \"tags\": {},\n\n    \"instances\": {},\n\n    \"resources\": {}\n\n}";
-        config_file
-            .write(new_config_contents)
-            .expect("failed to write initial contents to config file");
-        // config_contents needs the current valid file contents to parse json
-        config_contents = String::from(
-            std::str::from_utf8(new_config_contents)
-                .expect("could not convert &[u8] to valid UTF-8"),
+        let new_config_contents = concat!(
+            "{\n",
+            "    \"tags\": [],\n",
+            "\n",
+            "    \"instances\": [],\n",
+            "\n",
+            "    \"resources\": []\n",
+            "}",
         );
+        config_file.write(new_config_contents.as_bytes()).unwrap();
+        // config_contents needs the current valid file contents to parse json
+        config_contents = new_config_contents.to_string();
     }
 
-    let mut json_value: Value =
-        serde_json::from_str(&config_contents).expect("config file contains invalid json");
+    let library_index: LibraryIndex = serde_json::from_str(&config_contents).unwrap();
+    library_index
+}
 
-    let mut file_hashes: Vec<FileHash> = Vec::new();
-    WalkDir::new(resources_directory)
+/// Clear the contents of a file.
+fn clear_file(file: &mut std::fs::File) {
+    file.set_len(0).unwrap();
+    file.seek(SeekFrom::Start(0)).unwrap();
+}
+
+/// Register new resources and update the checksum of existing resources.
+fn librarian_register(
+    config_file: &mut std::fs::File,
+    library_index: &mut LibraryIndex,
+    resources_directory_path: &PathBuf,
+) {
+    // TODO
+    let mut file_hashes = HashMap::new();
+    WalkDir::new(resources_directory_path)
         .min_depth(1)
         .max_depth(1)
         .into_iter()
@@ -136,22 +215,24 @@ fn main() {
             let file = f.unwrap();
 
             if file.file_type().is_dir() {
-                file_hashes.push(FileHash {
-                    file: file.path().to_path_buf(),
-                    hash: directory_recursive_sha1(file.path()),
-                });
+                file_hashes.insert(
+                    directory_recursive_sha1(file.path()).digest().to_string(),
+                    file.path().to_path_buf(),
+                );
             } else {
                 let file_contents = read(file.path()).expect("failed to read file");
                 let mut sha = sha1::Sha1::new();
                 sha.update(&file_contents);
-                file_hashes.push(FileHash {
-                    file: file.path().to_path_buf(),
-                    hash: sha,
-                });
+                file_hashes.insert(sha.digest().to_string(), file.path().to_path_buf());
             }
         });
 
-    register_new_files(&mut json_value, file_hashes);
+    update_resources(library_index, &file_hashes, config_file);
+}
+
+fn librarian_instantiate(library_index: &LibraryIndex) {
+    // TODO not yet implemented
+    // assert!(false);
 }
 
 /// TODO
@@ -160,31 +241,54 @@ fn directory_recursive_sha1(directory_path: &Path) -> Sha1 {
     Sha1::new()
 }
 
-/// TODO
-fn register_new_files(json: &mut Value, file_hashes: Vec<FileHash>) {
-    for file_hash in file_hashes {}
-
-    let resources = &json["resources"];
-    for (_, r) in resources
-        .as_object()
-        .expect("resources key is not an object")
-        .into_iter()
-    {
-        let resource: Resource = serde_json::from_value(r.clone()).unwrap();
-        println!("{:?}", resource.checksum);
+/// Add new files (or directories) in the resources directory to the
+/// config file and change the file to its current SHA-1 checksum.
+fn update_resources(
+    library_index: &mut LibraryIndex,
+    file_hashes: &HashMap<String, PathBuf>,
+    config_file: &mut std::fs::File,
+) {
+    // create a hash of all resources in the config file for fast lookup
+    let mut resource_hash = HashMap::<String, Resource>::new();
+    for resource in &library_index.resources {
+        resource_hash.insert(resource.historical_checksums[0].clone(), resource.clone());
     }
-    // TODO
-}
 
-// fn hash_in_resources(hash: String, resources: serde_json::Value) -> bool {
-//     for resource in resources
-//         .as_object()
-//         .expect("resources key is not an object")
-//         .iter()
-//     {
-//         if resource.checksum == hash {
-//             return true;
-//         }
-//     }
-//     false
-// }
+    for (hash, file_path) in file_hashes {
+        let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
+        match resource_hash.get_mut(&file_name) {
+            // update the checksum if it's changed
+            Some(r) => {
+                if r.checksum != hash.to_string() {
+                    r.historical_checksums.push(hash.to_string());
+                    r.checksum = hash.to_string();
+                }
+            }
+            None => {
+                let new_resource = Resource {
+                    title: String::from(""),
+                    authors: std::vec!(),
+                    year: None,
+                    edition: None,
+                    publisher: None,
+                    tags: std::vec!(),
+                    checksum: hash.to_string(),
+                    historical_checksums: std::vec!(hash.to_string()),
+                };
+                library_index.resources.push(new_resource.clone());
+                // it's necessary to update the hash in case we added the file twice to the resources directory.
+                resource_hash.insert(file_name, new_resource);
+
+                // rename the file the current sha one contents
+                let mut new_file_name = hash.to_string();
+                new_file_name.push_str(".");
+                new_file_name.push_str(file_path.extension().unwrap().to_str().unwrap());
+                let new_file_path = file_path.parent().unwrap().join(new_file_name);
+                std::fs::rename(file_path, new_file_path).unwrap();
+            }
+        }
+    }
+
+    clear_file(config_file);
+    serde_json::to_writer_pretty(config_file, &library_index).unwrap();
+}

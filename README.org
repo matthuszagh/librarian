@@ -5,7 +5,7 @@
 2. make document hierarchical organization declarative and compatible with a tags-based approach to classifying resources,
 3. and provide a persistant file path for each file.
 
-These goals and ~librarian~'s means of accomplishing them are discussed below.
+These goals and ~librarian~'s means of accomplishing them are elaborated below.
 
 * Basic Concepts
 ~librarian~ works on a directory conforming to a basic structure, which it calls a "library". Let's assume this library is stored in a directory named ~library~, though it can be any valid directory name. A library's structure should conform to:
@@ -18,7 +18,7 @@ library
 
 ~config.json~ is a JSON configuration file where ~librarian~ looks for declarative information about the library. It's name can be changed, if desired.
 
-~contents~ is a directory containing a flat hierarchy of documents and directories. Each of the files or directories in ~contents~ is called a "resource". More specifically, they are called "original resources", since they are the original copy of this resource. Additional copies will be made, as we'll see later in "instances". The flat hierarchy means that all resources must be located directly within ~contents~ and cannot be nested. Some resources (e.g., archived web pages) are directories themselves and may also contain directories. That's fine. A directory and all its contained files (traversed recursively) is considered a single resource and in many respects will be treated identically to a single-file document. The name of the ~contents~ directory is not important, as long as it is consistent with the choice in the configuration file.
+~contents~ (resources?) is a directory containing a flat hierarchy of documents and directories. Each of the files or directories in ~contents~ is called a "resource". More specifically, they are called "original resources", since they are the original copy of this resource. Additional copies will be made, as we'll see later in "instances". The flat hierarchy means that all resources must be located directly within ~contents~ and cannot be nested. Some resources (e.g., archived web pages) are directories themselves and may also contain directories. That's fine. A directory and all its contained files (traversed recursively) is considered a single resource and in many respects will be treated identically to a single-file document. The name of the ~contents~ directory is not important, as long as it is consistent with the choice in the configuration file.
 
 The ~config.json~ file contains three major subsections. A simple example file is shown below.
 
@@ -68,7 +68,7 @@ The ~config.json~ file contains three major subsections. A simple example file i
         }
     },
 
-    "contents": {
+    "resources": {
         "1f41a02ac620f0388a8e40454b48f67137820dcb": {
             "title": "Microelectronic Circuits",
             "authors": [
@@ -142,8 +142,15 @@ If so, we may want to change "clone resource" to "secondary resource".
 * Arguments
 ** Subcommands
 *** register
-~librarian register~ registers all new original resources and adds information about them to the configuration file.
+~librarian register~ performs several tasks.
 
+First, it iterates through all files and directories in ~resources~. If that file does not have an entry in ~config.json~ (this is determined by checking if the file stem (file name minus extension) matches the first entry of ~"historical_checksums"~) it is added.
+
+For files that do have an existing entry, librarian checks if the checksum still matches the checksum in ~config.json~. If the checksum has changed, the ~config.json~ ~"checksum"~ field is set to the new checksum and that new checksum is also appended to ~"historical_checksums"~.
+
+It should be clear that this satisfies librarian's goal of persistant file naming, even with changes in file contents.
+
+**** TODO rename to update?
 *** instantiate
 ~librarian instantiate~ instantiates one or more instances from the configuration file. If no additional arguments are given, this instantiates all instances. All additional positional arguments after instantiate will be treated as instances to instantiate. More than one instance can be specified. If at least one instance is provided, no other instances will be instantiated.
 
@@ -172,5 +179,11 @@ It would be useful to be able to call a user-defined rust function on a string i
 * Sorting a Config File
 ~librarian~ can sort a config file for you. This will sort each resource in the ~contents~ field in alphanumeric order.
 
-* TODO
-** should resource be renamed to reference?
+* Programming
+** API
+*** passing around files
+Before a file is opened, it should be passed around as a ~PathBuf~. After it has been opened, it should be passed around as a ~std::fs::File~.
+
+* todo
+** TODO rename contents to resources
+** TODO should resource be renamed to reference?
