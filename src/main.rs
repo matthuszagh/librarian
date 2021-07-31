@@ -67,7 +67,6 @@ fn main() {
         .read(true)
         .write(true)
         .create(true)
-        .truncate(true)
         .open(&config_file_path)
         .expect("Failed to open or create config file");
     let mut library_index = config_file_library_index(&mut config_file);
