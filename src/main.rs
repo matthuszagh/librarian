@@ -204,8 +204,7 @@ fn librarian_register(
     library_index: &mut LibraryIndex,
     resources_directory_path: &PathBuf,
 ) {
-    // TODO
-    let mut file_hashes = HashMap::new();
+    let mut file_hashes = HashMap::<String, PathBuf>::new();
     WalkDir::new(resources_directory_path)
         .min_depth(1)
         .max_depth(1)
@@ -215,14 +214,16 @@ fn librarian_register(
 
             if file.file_type().is_dir() {
                 file_hashes.insert(
-                    directory_recursive_sha1(file.path()).digest().to_string(),
-                    file.path().to_path_buf(),
+                    directory_recursive_sha1(&file.clone().into_path())
+                        .digest()
+                        .to_string(),
+                    file.clone().path().to_path_buf(),
                 );
             } else {
                 let file_contents = read(file.path()).expect("failed to read file");
                 let mut sha = sha1::Sha1::new();
                 sha.update(&file_contents);
-                file_hashes.insert(sha.digest().to_string(), file.path().to_path_buf());
+                file_hashes.insert(sha.digest().to_string(), file.clone().path().to_path_buf());
             }
         });
 
@@ -235,9 +236,32 @@ fn librarian_instantiate(library_index: &LibraryIndex) {
 }
 
 /// TODO
-fn directory_recursive_sha1(directory_path: &Path) -> Sha1 {
-    // TODO
-    Sha1::new()
+fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
+    let mut directory_content = Vec::<u8>::new();
+
+    for f in WalkDir::new(directory_path)
+        .min_depth(1)
+        .sort_by_file_name()
+        .into_iter()
+    {
+        let f = f.unwrap();
+        // First, append the file name to the directory content vector.
+        directory_content.append(&mut Vec::<u8>::from(
+            f.path()
+                .strip_prefix(directory_path)
+                .unwrap()
+                .clone()
+                .to_str()
+                .unwrap(),
+        ));
+        // Then, if the file is a file type, also append its contents.
+        if f.path().is_file() {
+            directory_content.append(&mut read(f.path()).unwrap());
+        }
+    }
+    let mut sha = Sha1::new();
+    sha.update(&directory_content);
+    sha
 }
 
 /// Add new files (or directories) in the resources directory to the
@@ -262,6 +286,11 @@ fn update_resources(
                     r.historical_checksums.push(hash.to_string());
                     r.checksum = hash.to_string();
                 }
+                // Remove resources from hash map as we iterate
+                // through, so we can remove all resources from the
+                // config file that no longer have corresponding
+                // resource files.
+                resource_hash.remove(&file_name);
             }
             None => {
                 let new_resource = Resource {
@@ -275,18 +304,23 @@ fn update_resources(
                     historical_checksums: std::vec!(hash.to_string()),
                 };
                 library_index.resources.push(new_resource.clone());
-                // it's necessary to update the hash in case we added the file twice to the resources directory.
-                resource_hash.insert(file_name, new_resource);
 
-                // rename the file the current sha one contents
+                // rename the file to the current sha one contents
                 let mut new_file_name = hash.to_string();
-                new_file_name.push_str(".");
-                new_file_name.push_str(file_path.extension().unwrap().to_str().unwrap());
+                // unless the file is a directory, add back the extension
+                if file_path.is_file() {
+                    new_file_name.push_str(".");
+                    new_file_name.push_str(file_path.extension().unwrap().to_str().unwrap());
+                }
                 let new_file_path = file_path.parent().unwrap().join(new_file_name);
                 std::fs::rename(file_path, new_file_path).unwrap();
             }
         }
     }
+
+    // TODO remove config file resources no longer in the resources directory
+
+    // for resource in resource_hash {}
 
     clear_file(config_file);
     serde_json::to_writer_pretty(config_file, &library_index).unwrap();
