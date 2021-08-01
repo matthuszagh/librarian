@@ -28,9 +28,16 @@ struct Date {
     day: Option<i32>,
 }
 
+/// TODO
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+enum ResourceType {
+    Document,
+    Website,
+}
+
 /// Library "resource". This represents one unit of library content,
-/// whether a file (such as a document or video), or a directory
-/// containing the contents of a webpage.
+/// which can either be a file (such as a document or video), or a
+/// directory (e.g., containing the contents of a webpage).
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct Resource {
     title: String,
@@ -42,6 +49,7 @@ struct Resource {
     tags: Vec<String>,
     checksum: String,
     historical_checksums: Vec<String>,
+    resource_type: Option<ResourceType>,
 }
 
 /// Library "tag".
@@ -312,17 +320,20 @@ fn update_resources(
                 let new_resource = Resource {
                     title: String::from(""),
                     authors: std::vec!(),
-                    date: { Date {
-                        year: None,
-                        month: None,
-                        day: None,
-                    }},
+                    date: {
+                        Date {
+                            year: None,
+                            month: None,
+                            day: None,
+                        }
+                    },
                     edition: None,
                     publisher: None,
                     organization: None,
                     tags: std::vec!(),
                     checksum: hash.to_string(),
                     historical_checksums: std::vec!(hash.to_string()),
+                    resource_type: None,
                 };
                 library_index.resources.push(new_resource.clone());
 

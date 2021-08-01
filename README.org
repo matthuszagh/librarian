@@ -1,7 +1,7 @@
 * Introduction
 ~librarian~ is a tool for managing a library of documents and other media. It is typically used for documents (such as PDF, epub, etc.), video files, and webpage archives, though it will work with any text or binary file or directory. Its primary goals are to:
 
-1. standardize file names and make the naming pattern declarative,
+1. standardize file names and make the naming pattern declarative and easy to change,
 2. make document hierarchical organization declarative and compatible with a tags-based approach to classifying resources,
 3. and provide a persistant file path for each file.
 
@@ -86,7 +86,7 @@ The ~config.json~ file contains three major subsections. A simple example file i
             "edition": 7,
             "year": 2014,
             "publisher": "Oxford University Press",
-            "tags": ["electronics", "electronics:general"],
+            "tags": ["electronics:general"],
             "checksum": "sha1-1f41a02ac620f0388a8e40454b48f67137820dcb",
             "previous checksums": ["sha1-1f41a02ac620f0388a8e40454b48f67137820dcb"]
         },
@@ -112,7 +112,7 @@ The ~config.json~ file contains three major subsections. A simple example file i
             "edition": 1,
             "year": 2008,
             "publisher": "Princeton University Press",
-            "tags": ["math", "math:general"],
+            "tags": ["math:general"],
             "checksum": "sha1-2aec674c6d78a0a596529e1ef94f24c9ae625179",
             "previous checksums": ["sha1-2aec674c6d78a0a596529e1ef94f24c9ae625179"]
         }
@@ -135,6 +135,55 @@ Each entry contains a number of other keys, providing meta information about the
 There a number of other keys, such as "title", "authors", "year", "publisher", etc. These are used to populate parts of the file name in an instance, and to generate a bibliography.
 
 A new file is added as an original resource by adding it (with any name) to the contents directory. Running ~librarian register~ will compute the new file's checksum, add it to the configuration file and change the file's name to correspond to this initial checksum. This command will also add keys and their values to the entry for information it knows, and leave the information it doesn't know empty.
+
+** tags
+I think tags may need some reconsideration. For example, given a quantum mechanics textbook, a natural choice might be to give this the tags "physics" and "quantum mechanics". If we did this we'd get the hierarchy (assuming the obvious instance structure)
+
+#+begin_src bash :eval no
+└── physics
+    ├── qmtext.pdf
+    └── quantum_mechanics
+        └── qmtext.pdf
+#+end_src
+
+This is probably not what we want. Instead, the following is most likely preferable for most people.
+
+#+begin_src bash :eval no
+└── physics
+    └── quantum_mechanics
+        └── qmtext.pdf
+#+end_src
+
+We could solve this issue at instantiation by only instantiating a resource at a tag node if that tag does not have a child tag also containing that resource.
+
+*** TODO qualified tags
+TODO I'm not sure if this is a good idea. It may be better to place files directly within the electronics and math hierarchies than in "general" subdirectories of them.
+
+There may be instances in which we want a tag to be a qualification of another tag. For example, perhaps we want one file to appear under "electronics/general"  (call this file1) and some other file to appear under "math/general" (file 2). If we give file1 the tags ["electronics", "general"] and file2 the tags ["math", "general"], we'll wind up with the directory structure
+
+#+begin_src bash :eval no
+├── electronics
+│   └── general
+│       ├── file1
+│       └── file2
+└── math
+    └── general
+        ├── file1
+        └── file2
+#+end_src
+
+which is not what we want. Instead, we want
+
+#+begin_src bash :eval no
+├── electronics
+│   └── general
+│       └── file1
+└── math
+    └── general
+        └── file2
+#+end_src
+
+To accomplish this, we can qualify a tag. So, instead of giving file1 the tags ["electronics", "general"], we'd give it ["electronics:general"].
 
 * Arguments
 ** Subcommands
@@ -195,7 +244,12 @@ It would be useful to be able to call a user-defined rust function on a string i
 *** passing around files
 Before a file is opened, it should be passed around as a ~PathBuf~. After it has been opened, it should be passed around as a ~std::fs::File~.
 
-* todo
+* Task List
+** TODO add a type field to resource
+This would probably be an enumeration that could be a
+
+** TODO add a config file that records the location of the library so you don't need to pass it when invoking librarian
+** TODO should I support other checksum formats than sha1?
 ** TODO rename contents to resources
 ** TODO should "original resource" be renamed to "primary resource"
 If so, we may want to change "clone resource" to "secondary resource".
@@ -205,3 +259,19 @@ If so, we may want to change "clone resource" to "secondary resource".
 The current conception of this tool should technically work, but the question is whether the abstraction is still a nice one for binary files. For example, does the somewhat rigid field structure for resources (title, author, year, edition, publisher, etc.) not work well for other kinds of files.
 
 ** TODO this tool is a natural way of more generally organizing content declaratively
+** TODO use wget2 instead of wget
+* Task List Before I (Personally) Start Using This
+This section is a personal note. It probably won't be relevant to anyone else.
+
+** add an elisp package to interface with the librarian command line tool
+** open a file based on useful information
+For instance, open a file by title. Practically, this probably means implementing some subset of the "search" subcommand. Then, adding an interactive elisp function to invoke it.
+
+** open an archived webpage
+This isn't really a blocker, since I don't have a convenient way to do this currently anyway.
+
+This should be an extension of the previous item. And, it's not really a task for librarian. It's more a task for the elisp function that invokes it.
+
+If opening a file leads to a directory,
+
+But, it should be easy to add an elisp function to open
