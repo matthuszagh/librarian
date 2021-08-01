@@ -20,6 +20,14 @@ struct Name {
     last: Option<String>,
 }
 
+/// TODO
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+struct Date {
+    year: Option<i32>,
+    month: Option<i32>,
+    day: Option<i32>,
+}
+
 /// Library "resource". This represents one unit of library content,
 /// whether a file (such as a document or video), or a directory
 /// containing the contents of a webpage.
@@ -27,7 +35,7 @@ struct Name {
 struct Resource {
     title: String,
     authors: Vec<Name>,
-    year: Option<i32>,
+    date: Date,
     edition: Option<i32>,
     publisher: Option<String>,
     tags: Vec<String>,
@@ -303,7 +311,11 @@ fn update_resources(
                 let new_resource = Resource {
                     title: String::from(""),
                     authors: std::vec!(),
-                    year: None,
+                    date: { Date {
+                        year: None,
+                        month: None,
+                        day: None,
+                    }},
                     edition: None,
                     publisher: None,
                     tags: std::vec!(),
