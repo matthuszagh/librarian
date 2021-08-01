@@ -334,6 +334,10 @@ fn update_resources(
         resource_hash.remove(resource);
     }
     library_index.resources = resource_hash.values().cloned().collect();
+    // sort resources by title into alphanumeric order
+    library_index
+        .resources
+        .sort_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
 
     clear_file(config_file);
     serde_json::to_writer_pretty(config_file, &library_index).unwrap();
