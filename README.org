@@ -136,9 +136,6 @@ There a number of other keys, such as "title", "authors", "year", "publisher", e
 
 A new file is added as an original resource by adding it (with any name) to the contents directory. Running ~librarian register~ will compute the new file's checksum, add it to the configuration file and change the file's name to correspond to this initial checksum. This command will also add keys and their values to the entry for information it knows, and leave the information it doesn't know empty.
 
-** TODO should "original resource" be renamed to "primary resource"
-If so, we may want to change "clone resource" to "secondary resource".
-
 * Arguments
 ** Subcommands
 *** register
@@ -200,4 +197,11 @@ Before a file is opened, it should be passed around as a ~PathBuf~. After it has
 
 * todo
 ** TODO rename contents to resources
+** TODO should "original resource" be renamed to "primary resource"
+If so, we may want to change "clone resource" to "secondary resource".
+
 ** TODO should resource be renamed to reference?
+** TODO does anything need to be changed to handle other binary files such as firmware?
+The current conception of this tool should technically work, but the question is whether the abstraction is still a nice one for binary files. For example, does the somewhat rigid field structure for resources (title, author, year, edition, publisher, etc.) not work well for other kinds of files.
+
+** TODO this tool is a natural way of more generally organizing content declaratively
