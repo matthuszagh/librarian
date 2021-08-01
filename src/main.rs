@@ -266,20 +266,27 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
 
 /// Add new files (or directories) in the resources directory to the
 /// config file and change the file to its current SHA-1 checksum.
+///
+/// # Arguments
+///
+/// * `file_hashes` - File path and checksum for every file and directory in the resources directory.
 fn update_resources(
     library_index: &mut LibraryIndex,
     file_hashes: &HashMap<String, PathBuf>,
     config_file: &mut std::fs::File,
 ) {
+    // TODO this implementation could probably be more efficient
+
     // create a hash of all resources in the config file for fast lookup
-    let mut resource_hash = HashMap::<String, Resource>::new();
+    let mut library_index_resource_hash = HashMap::<String, Resource>::new();
     for resource in &library_index.resources {
-        resource_hash.insert(resource.historical_checksums[0].clone(), resource.clone());
+        library_index_resource_hash
+            .insert(resource.historical_checksums[0].clone(), resource.clone());
     }
 
     for (hash, file_path) in file_hashes {
         let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
-        match resource_hash.get_mut(&file_name) {
+        match library_index_resource_hash.get_mut(&file_name) {
             // update the checksum if it's changed
             Some(r) => {
                 if r.checksum != hash.to_string() {
@@ -290,7 +297,7 @@ fn update_resources(
                 // through, so we can remove all resources from the
                 // config file that no longer have corresponding
                 // resource files.
-                resource_hash.remove(&file_name);
+                library_index_resource_hash.remove(&file_name);
             }
             None => {
                 let new_resource = Resource {
@@ -318,9 +325,15 @@ fn update_resources(
         }
     }
 
-    // TODO remove config file resources no longer in the resources directory
-
-    // for resource in resource_hash {}
+    // remove config file resources no longer in the resources directory
+    let mut resource_hash = HashMap::<String, Resource>::new();
+    for resource in &library_index.resources {
+        resource_hash.insert(resource.historical_checksums[0].clone(), resource.clone());
+    }
+    for resource in library_index_resource_hash.keys() {
+        resource_hash.remove(resource);
+    }
+    library_index.resources = resource_hash.values().cloned().collect();
 
     clear_file(config_file);
     serde_json::to_writer_pretty(config_file, &library_index).unwrap();
