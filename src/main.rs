@@ -50,6 +50,7 @@ struct Resource {
     checksum: String,
     historical_checksums: Vec<String>,
     resource_type: Option<ResourceType>,
+    file_path: String,
 }
 
 /// Library "tag".
@@ -88,6 +89,9 @@ fn main() {
         .expect("Failed to open or create config file");
     let mut library_index = config_file_library_index(&mut config_file);
 
+    // Invoke the function for the appropriate subcommand. If no
+    // subcommand is given, perform "register" followed by
+    // "instantiate".
     if args.is_present("register") {
         librarian_register(
             &mut config_file,
@@ -96,6 +100,8 @@ fn main() {
         );
     } else if args.is_present("instantiate") {
         librarian_instantiate(&library_index);
+    } else if args.is_present("search") {
+        librarian_search(&library_index, &resources_directory_path);
     } else {
         // when no subcommand is provided, register all new files and instantiate all directories
         librarian_register(
@@ -152,6 +158,11 @@ fn parse_app_args() -> clap::ArgMatches {
         .subcommand(
             App::new("instantiate")
                 .about("instantiates one or more instances from the configuration file")
+                .long_about("TODO")
+        )
+        .subcommand(
+            App::new("search")
+                .about("get the path of a resource from information about it")
                 .long_about("TODO")
         )
         .get_matches()
@@ -258,6 +269,8 @@ fn librarian_instantiate(library_index: &LibraryIndex) {
     // assert!(false);
 }
 
+fn librarian_search(library_index: &LibraryIndex, resources_directory_path: &PathBuf) {}
+
 /// Compute a SHA1 checksum of a directory.
 ///
 /// The checksum incorporates the contents of all files in the
@@ -330,6 +343,16 @@ fn update_resources(
                 library_index_resource_hash.remove(&file_name);
             }
             None => {
+                // rename the file to the current sha one contents
+                let mut new_file_name = hash.to_string();
+                // unless the file is a directory, add back the extension
+                if file_path.is_file() {
+                    new_file_name.push_str(".");
+                    new_file_name.push_str(file_path.extension().unwrap().to_str().unwrap());
+                }
+                let new_file_path = file_path.parent().unwrap().join(new_file_name);
+                std::fs::rename(file_path, new_file_path.clone()).unwrap();
+
                 let new_resource = Resource {
                     title: String::from(""),
                     authors: std::vec!(),
@@ -347,18 +370,9 @@ fn update_resources(
                     checksum: hash.to_string(),
                     historical_checksums: std::vec!(hash.to_string()),
                     resource_type: None,
+                    file_path: String::from(new_file_path.file_name().unwrap().to_str().unwrap()),
                 };
                 library_index.resources.push(new_resource.clone());
-
-                // rename the file to the current sha one contents
-                let mut new_file_name = hash.to_string();
-                // unless the file is a directory, add back the extension
-                if file_path.is_file() {
-                    new_file_name.push_str(".");
-                    new_file_name.push_str(file_path.extension().unwrap().to_str().unwrap());
-                }
-                let new_file_path = file_path.parent().unwrap().join(new_file_name);
-                std::fs::rename(file_path, new_file_path).unwrap();
             }
         }
     }
