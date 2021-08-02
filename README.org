@@ -245,9 +245,6 @@ It would be useful to be able to call a user-defined rust function on a string i
 Before a file is opened, it should be passed around as a ~PathBuf~. After it has been opened, it should be passed around as a ~std::fs::File~.
 
 * Task List
-** TODO add a type field to resource
-This would probably be an enumeration that could be a
-
 ** TODO add a config file that records the location of the library so you don't need to pass it when invoking librarian
 ** TODO should I support other checksum formats than sha1?
 ** TODO rename contents to resources
@@ -272,6 +269,10 @@ This isn't really a blocker, since I don't have a convenient way to do this curr
 
 This should be an extension of the previous item. And, it's not really a task for librarian. It's more a task for the elisp function that invokes it.
 
-If opening a file leads to a directory,
+If opening a file leads to a directory, then query the resource type. If it's a webpage then get the HTML page with
 
-But, it should be easy to add an elisp function to open
+#+begin_src bash :eval no
+find . -name "*.html"
+#+end_src
+
+open that, and then invoke ~shr-render-buffer~.

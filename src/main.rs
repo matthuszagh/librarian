@@ -229,18 +229,24 @@ fn librarian_register(
         .for_each(|f| {
             let file = f.unwrap();
 
+            let sha_string: String;
             if file.file_type().is_dir() {
-                file_hashes.insert(
-                    directory_recursive_sha1(&file.clone().into_path())
-                        .digest()
-                        .to_string(),
-                    file.clone().path().to_path_buf(),
-                );
+                sha_string = directory_recursive_sha1(&file.clone().into_path())
+                    .digest()
+                    .to_string();
             } else {
                 let file_contents = read(file.path()).expect("failed to read file");
                 let mut sha = sha1::Sha1::new();
                 sha.update(&file_contents);
-                file_hashes.insert(sha.digest().to_string(), file.clone().path().to_path_buf());
+                sha_string = sha.digest().to_string();
+            }
+
+            // If the a resource with duplicate contents exist, delete
+            // all but one copy.
+            if file_hashes.contains_key(&sha_string) {
+                std::fs::remove_file(file.path()).unwrap();
+            } else {
+                file_hashes.insert(sha_string, file.clone().path().to_path_buf());
             }
         });
 
@@ -252,7 +258,14 @@ fn librarian_instantiate(library_index: &LibraryIndex) {
     // assert!(false);
 }
 
-/// TODO
+/// Compute a SHA1 checksum of a directory.
+///
+/// The checksum incorporates the contents of all files in the
+/// directory as well as the path and name of every file relative to
+/// the directory. That is, two otherwise identical directories at
+/// different locations in the filesystem would yield the same
+/// checksum, but any difference in the contents of the directory
+/// would result in a different checksum.
 fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
     let mut directory_content = Vec::<u8>::new();
 
