@@ -1,4 +1,5 @@
 use clap::{app_from_crate, App, Arg};
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use std::collections::HashMap;
@@ -7,7 +8,7 @@ use std::fs::{read, OpenOptions};
 use std::io::prelude::*;
 use std::io::SeekFrom;
 use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::string::String;
 use std::vec::Vec;
 use walkdir::WalkDir;
@@ -97,7 +98,16 @@ fn main() {
     } else if args.is_present("instantiate") {
         librarian_instantiate(&catalog);
     } else if args.is_present("search") {
-        librarian_search(&catalog, &resources_path);
+        librarian_search(
+            &catalog,
+            &resources_path,
+            &String::from(
+                args.subcommand_matches("search")
+                    .unwrap()
+                    .value_of("query")
+                    .expect("must provide a search query"),
+            ),
+        );
     } else {
         // when no subcommand is provided, register all new files and
         // instantiate all directories
@@ -163,8 +173,8 @@ fn parse_app_args() -> clap::ArgMatches {
                 .about("get the path of a resource from information about it")
                 .long_about("TODO")
                 .arg(
-                    Arg::new("title")
-                        .about("resource title")
+                    Arg::new("query")
+                        .about("resource query")
                         .takes_value(true)
                 )
         )
@@ -276,7 +286,23 @@ fn librarian_instantiate(catalog: &Catalog) {
     // assert!(false);
 }
 
-fn librarian_search(catalog: &Catalog, resources_path: &PathBuf) {}
+fn librarian_search(catalog: &Catalog, resources_path: &PathBuf, query: &String) {
+    // TODO I'd like to support a full-featured query
+    // syntax. Something similar to recoll's query syntax but with
+    // regex support.
+
+    // TODO currently, we just use the query string as a regex to
+    // search the title
+
+    let re = Regex::new(query).expect("invalid regex query");
+    catalog
+        .resources
+        .iter()
+        .filter(|r| re.is_match(&r.title))
+        .for_each(|r| {
+            println!("{:?}", resources_path.join(&r.historical_checksums[0]));
+        });
+}
 
 /// Compute a SHA1 checksum of a directory.
 ///
