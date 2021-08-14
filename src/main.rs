@@ -12,7 +12,7 @@ use std::string::String;
 use std::vec::Vec;
 use walkdir::WalkDir;
 
-/// TODO
+/// Name.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct Name {
     first: Option<String>,
@@ -20,19 +20,12 @@ struct Name {
     last: Option<String>,
 }
 
-/// TODO
+/// Date.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct Date {
     year: Option<i32>,
     month: Option<i32>,
     day: Option<i32>,
-}
-
-/// TODO
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
-enum ResourceType {
-    Document,
-    Website,
 }
 
 /// Library "resource". This represents one unit of library content,
@@ -49,8 +42,8 @@ struct Resource {
     tags: Vec<String>,
     checksum: String,
     historical_checksums: Vec<String>,
-    resource_type: Option<ResourceType>,
-    file_path: String,
+    /// Key of the catalog's extensions.
+    resource_type: Option<String>,
 }
 
 /// Library "tag".
@@ -70,46 +63,46 @@ struct Instance {
     file_name_pattern: String,
 }
 
-/// Library "index" specified by the config file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-struct LibraryIndex {
+struct ResourceType {
+    name: String,
+    extension: String,
+}
+
+/// Library catalog contained within the catalog.json file.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct Catalog {
     tags: Vec<Tag>,
+    extensions: Vec<ResourceType>,
     instances: Vec<Instance>,
     resources: Vec<Resource>,
 }
 
 fn main() {
     let args = parse_app_args();
-    let (resources_directory_path, config_file_path) = library_paths(&args);
-    let mut config_file = OpenOptions::new()
+    let (resources_path, catalog_path) = library_paths(&args);
+    let mut catalog_file = OpenOptions::new()
         .read(true)
         .write(true)
         .create(true)
-        .open(&config_file_path)
-        .expect("Failed to open or create config file");
-    let mut library_index = config_file_library_index(&mut config_file);
+        .open(&catalog_path)
+        .expect("Failed to open or create catalog");
+    let mut catalog = read_catalog(&mut catalog_file);
 
     // Invoke the function for the appropriate subcommand. If no
     // subcommand is given, perform "register" followed by
     // "instantiate".
     if args.is_present("register") {
-        librarian_register(
-            &mut config_file,
-            &mut library_index,
-            &resources_directory_path,
-        );
+        librarian_register(&mut catalog_file, &mut catalog, &resources_path);
     } else if args.is_present("instantiate") {
-        librarian_instantiate(&library_index);
+        librarian_instantiate(&catalog);
     } else if args.is_present("search") {
-        librarian_search(&library_index, &resources_directory_path);
+        librarian_search(&catalog, &resources_path);
     } else {
-        // when no subcommand is provided, register all new files and instantiate all directories
-        librarian_register(
-            &mut config_file,
-            &mut library_index,
-            &resources_directory_path,
-        );
-        librarian_instantiate(&library_index);
+        // when no subcommand is provided, register all new files and
+        // instantiate all directories
+        librarian_register(&mut catalog_file, &mut catalog, &resources_path);
+        librarian_instantiate(&catalog);
     }
 }
 
@@ -133,13 +126,13 @@ fn parse_app_args() -> clap::ArgMatches {
                 ),
         )
         .arg(
-            Arg::new("config")
-                .about("library config file, relative to the library directory path")
+            Arg::new("catalog")
+                .about("library catalog file, relative to the library directory path")
                 .long_about("TODO")
                 .takes_value(true)
                 .short('c')
-                .long("config")
-                .default_value("config.json")
+                .long("catalog")
+                .default_value("catalog.json")
         )
         .arg(
             Arg::new("resources")
@@ -152,23 +145,33 @@ fn parse_app_args() -> clap::ArgMatches {
         )
         .subcommand(
             App::new("register")
-                .about("registers all new original resources and adds information about them to the configuration file")
+                .about("registers all new original resources and adds information about them to the catalog")
                 .long_about("TODO")
         )
         .subcommand(
             App::new("instantiate")
-                .about("instantiates one or more instances from the configuration file")
+                .about("instantiates one or more instances from the catalog")
+                .long_about("TODO")
+        )
+        .subcommand(
+            App::new("validate")
+                .about("validates the catalog")
                 .long_about("TODO")
         )
         .subcommand(
             App::new("search")
                 .about("get the path of a resource from information about it")
                 .long_about("TODO")
+                .arg(
+                    Arg::new("title")
+                        .about("resource title")
+                        .takes_value(true)
+                )
         )
         .get_matches()
 }
 
-/// Get the resources directory path and config file path according to
+/// Get the resources directory path and catalog file path according to
 /// the user's command line arguments.
 fn library_paths(args: &clap::ArgMatches) -> (PathBuf, PathBuf) {
     let directory: PathBuf = PathBuf::from(
@@ -183,41 +186,43 @@ fn library_paths(args: &clap::ArgMatches) -> (PathBuf, PathBuf) {
             .expect("failed to retrieve resources argument"),
     );
 
-    // read and parse config file contents
-    let config_file_path = directory.join(
-        args.value_of("config")
-            .expect("failed to retrieve config argument"),
+    // read and parse catalog file contents
+    let catalog_path = directory.join(
+        args.value_of("catalog")
+            .expect("failed to retrieve catalog argument"),
     );
 
-    (resources_directory, config_file_path)
+    (resources_directory, catalog_path)
 }
 
-/// JSON value of the config file contents. This creates and properly
-/// initializes the config file if it doesn't exist or is empty.
-fn config_file_library_index(config_file: &mut std::fs::File) -> LibraryIndex {
-    let mut config_contents = String::new();
-    config_file
-        .read_to_string(&mut config_contents)
-        .expect("failed to read config file into a string");
+/// Reads the library catalog into a Catalog instance.
+///
+/// If the catalog doesn't exist, this function will initialize it to
+/// an empty catalog with the correct structure.
+/// TODO
+fn read_catalog(catalog_file: &mut std::fs::File) -> Catalog {
+    let mut catalog_contents = String::new();
+    catalog_file
+        .read_to_string(&mut catalog_contents)
+        .expect("failed to read catalog file into a string");
 
-    // initialize the config file if it's empty
-    if config_contents == "" {
-        let new_config_contents = concat!(
+    // initialize the catalog file if it's empty
+    if catalog_contents == "" {
+        let new_catalog_contents = concat!(
             "{\n",
-            "    \"tags\": [],\n",
-            "\n",
-            "    \"instances\": [],\n",
-            "\n",
-            "    \"resources\": []\n",
+            "  \"tags\": [],\n",
+            "  \"extensions\": [],\n",
+            "  \"instances\": [],\n",
+            "  \"resources\": []\n",
             "}",
         );
-        config_file.write(new_config_contents.as_bytes()).unwrap();
-        // config_contents needs the current valid file contents to parse json
-        config_contents = new_config_contents.to_string();
+        catalog_file.write(new_catalog_contents.as_bytes()).unwrap();
+        // catalog_contents needs the current valid file contents to parse json
+        catalog_contents = new_catalog_contents.to_string();
     }
 
-    let library_index: LibraryIndex = serde_json::from_str(&config_contents).unwrap();
-    library_index
+    let catalog: Catalog = serde_json::from_str(&catalog_contents).unwrap();
+    catalog
 }
 
 /// Clear the contents of a file.
@@ -226,50 +231,52 @@ fn clear_file(file: &mut std::fs::File) {
     file.seek(SeekFrom::Start(0)).unwrap();
 }
 
-/// Register new resources and update the checksum of existing resources.
+/// Register new resources and update the checksum of existing
+/// resources.
 fn librarian_register(
-    config_file: &mut std::fs::File,
-    library_index: &mut LibraryIndex,
-    resources_directory_path: &PathBuf,
+    catalog_file: &mut std::fs::File,
+    catalog: &mut Catalog,
+    resources_path: &PathBuf,
 ) {
-    let mut file_hashes = HashMap::<String, PathBuf>::new();
-    WalkDir::new(resources_directory_path)
+    // Hashmap of the SHA-1 checksum and path of each resource.
+    let mut resources = HashMap::<String, PathBuf>::new();
+    WalkDir::new(resources_path)
         .min_depth(1)
         .max_depth(1)
         .into_iter()
         .for_each(|f| {
             let file = f.unwrap();
 
-            let sha_string: String;
+            let content_sha: String;
             if file.file_type().is_dir() {
-                sha_string = directory_recursive_sha1(&file.clone().into_path())
+                content_sha = directory_recursive_sha1(&file.clone().into_path())
                     .digest()
                     .to_string();
             } else {
                 let file_contents = read(file.path()).expect("failed to read file");
                 let mut sha = sha1::Sha1::new();
                 sha.update(&file_contents);
-                sha_string = sha.digest().to_string();
+                content_sha = sha.digest().to_string();
             }
 
-            // If the a resource with duplicate contents exist, delete
-            // all but one copy.
-            if file_hashes.contains_key(&sha_string) {
+            // If a resource exists with identical content to the
+            // current resource, delete the current resource.
+            if resources.contains_key(&content_sha) {
                 std::fs::remove_file(file.path()).unwrap();
             } else {
-                file_hashes.insert(sha_string, file.clone().path().to_path_buf());
+                resources.insert(content_sha, file.clone().path().to_path_buf());
             }
         });
 
-    update_resources(library_index, &file_hashes, config_file);
+    update_resources(catalog, &resources, catalog_file);
 }
 
-fn librarian_instantiate(library_index: &LibraryIndex) {
+fn librarian_instantiate(catalog: &Catalog) {
     // TODO not yet implemented
     // assert!(false);
 }
 
-fn librarian_search(library_index: &LibraryIndex, resources_directory_path: &PathBuf) {}
+fn librarian_search(catalog: &Catalog, resources_path: &PathBuf) {}
 
 /// Compute a SHA1 checksum of a directory.
 ///
@@ -307,51 +314,58 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
     sha
 }
 
-/// Add new files (or directories) in the resources directory to the
-/// config file and change the file to its current SHA-1 checksum.
+/// Add new resources to the catalog file and change the file to its
+/// current SHA-1 checksum.
 ///
 /// # Arguments
 ///
-/// * `file_hashes` - File path and checksum for every file and directory in the resources directory.
+/// * `resources` - File path and checksum for every file and
+/// directory in the resources directory.
 fn update_resources(
-    library_index: &mut LibraryIndex,
-    file_hashes: &HashMap<String, PathBuf>,
-    config_file: &mut std::fs::File,
+    catalog: &mut Catalog,
+    resources: &HashMap<String, PathBuf>,
+    catalog_file: &mut std::fs::File,
 ) {
     // TODO this implementation could probably be more efficient
 
-    // create a hash of all resources in the config file for fast lookup
-    let mut library_index_resource_hash = HashMap::<String, Resource>::new();
-    for resource in &library_index.resources {
-        library_index_resource_hash
-            .insert(resource.historical_checksums[0].clone(), resource.clone());
+    // TODO should probably be broken up into multiple functions
+
+    // Create a hashmap of all cataloged resources for fast
+    // lookup. The first entry of the hashmap is the initial checksum
+    // of the resource, which is used to determine whether a resource
+    // has been cataloged. The second entry is the resource itself.
+    let mut catalog_resources = HashMap::<String, Resource>::new();
+    for resource in &catalog.resources {
+        catalog_resources.insert(resource.historical_checksums[0].clone(), resource.clone());
     }
 
-    for (hash, file_path) in file_hashes {
-        let file_name = file_path.file_stem().unwrap().to_str().unwrap().to_string();
-        match library_index_resource_hash.get_mut(&file_name) {
+    // Catalog each new resource or update the checksum if the
+    // resource's contents have changed.
+    for (checksum, resource_path) in resources {
+        let file_name = resource_path
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap()
+            .to_string();
+        match catalog_resources.get_mut(&file_name) {
             // update the checksum if it's changed
             Some(r) => {
-                if r.checksum != hash.to_string() {
-                    r.historical_checksums.push(hash.to_string());
-                    r.checksum = hash.to_string();
+                if r.checksum != checksum.to_string() {
+                    r.historical_checksums.push(checksum.to_string());
+                    r.checksum = checksum.to_string();
                 }
-                // Remove resources from hash map as we iterate
+                // Remove resources from the hash map as we iterate
                 // through, so we can remove all resources from the
-                // config file that no longer have corresponding
+                // catalog file that no longer have corresponding
                 // resource files.
-                library_index_resource_hash.remove(&file_name);
+                catalog_resources.remove(&file_name);
             }
             None => {
-                // rename the file to the current sha one contents
-                let mut new_file_name = hash.to_string();
-                // unless the file is a directory, add back the extension
-                if file_path.is_file() {
-                    new_file_name.push_str(".");
-                    new_file_name.push_str(file_path.extension().unwrap().to_str().unwrap());
-                }
-                let new_file_path = file_path.parent().unwrap().join(new_file_name);
-                std::fs::rename(file_path, new_file_path.clone()).unwrap();
+                // rename the file to the current SHA-1 contents
+                let new_file_name = checksum.to_string();
+                let new_file_path = resource_path.parent().unwrap().join(new_file_name);
+                std::fs::rename(resource_path, new_file_path.clone()).unwrap();
 
                 let new_resource = Resource {
                     title: String::from(""),
@@ -367,30 +381,30 @@ fn update_resources(
                     publisher: None,
                     organization: None,
                     tags: std::vec!(),
-                    checksum: hash.to_string(),
-                    historical_checksums: std::vec!(hash.to_string()),
+                    checksum: checksum.to_string(),
+                    historical_checksums: std::vec!(checksum.to_string()),
                     resource_type: None,
-                    file_path: String::from(new_file_path.file_name().unwrap().to_str().unwrap()),
                 };
-                library_index.resources.push(new_resource.clone());
+                catalog.resources.push(new_resource.clone());
             }
         }
     }
 
-    // remove config file resources no longer in the resources directory
+    // remove cataloged resources that are no longer in the resources
+    // directory
     let mut resource_hash = HashMap::<String, Resource>::new();
-    for resource in &library_index.resources {
+    for resource in &catalog.resources {
         resource_hash.insert(resource.historical_checksums[0].clone(), resource.clone());
     }
-    for resource in library_index_resource_hash.keys() {
+    for resource in catalog_resources.keys() {
         resource_hash.remove(resource);
     }
-    library_index.resources = resource_hash.values().cloned().collect();
-    // sort resources by title into alphanumeric order
-    library_index
+    catalog.resources = resource_hash.values().cloned().collect();
+    // sort resources by title in alphanumeric order
+    catalog
         .resources
         .sort_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
 
-    clear_file(config_file);
-    serde_json::to_writer_pretty(config_file, &library_index).unwrap();
+    clear_file(catalog_file);
+    serde_json::to_writer_pretty(catalog_file, &catalog).unwrap();
 }
