@@ -286,6 +286,8 @@ fn librarian_instantiate(catalog: &Catalog) {
     // assert!(false);
 }
 
+/// Print the path of resources matching a query.
+/// TODO
 fn librarian_search(catalog: &Catalog, resources_path: &PathBuf, query: &String) {
     // TODO I'd like to support a full-featured query
     // syntax. Something similar to recoll's query syntax but with
@@ -394,8 +396,14 @@ fn update_resources(
                 std::fs::rename(resource_path, new_file_path.clone()).unwrap();
 
                 let new_resource = Resource {
-                    title: String::from(""),
-                    authors: std::vec!(),
+                    title: file_name,
+                    authors: std::vec!(
+                        Name {
+                            first: None,
+                            middle: None,
+                            last: None,
+                        }
+                    ),
                     date: {
                         Date {
                             year: None,
