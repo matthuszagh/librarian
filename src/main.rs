@@ -2,7 +2,7 @@ use clap::{app_from_crate, App, Arg};
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::env;
 use std::fs::{read, OpenOptions};
 use std::io::prelude::*;
@@ -363,8 +363,16 @@ fn update_resources(
     // of the resource, which is used to determine whether a resource
     // has been cataloged. The second entry is the resource itself.
     let mut catalog_resources = HashMap::<String, Resource>::new();
+    // Collection containing the initial checksum of all catalog
+    // resources. For each resource, if that resource exists in the
+    // catalog we remove it from orphaned catalog entries. The ones
+    // that remain after iterating through all resources are the
+    // catalog resources that are no longer backed by a resource. We
+    // remove these from the catalog.
+    let mut orphaned_catalog_resources = HashSet::<String>::new();
     for resource in &catalog.resources {
         catalog_resources.insert(resource.historical_checksums[0].clone(), resource.clone());
+        orphaned_catalog_resources.insert(resource.historical_checksums[0].clone());
     }
 
     // Catalog each new resource or update the checksum if the
@@ -379,61 +387,54 @@ fn update_resources(
         match catalog_resources.get_mut(&file_name) {
             // update the checksum if it's changed
             Some(r) => {
-                if r.checksum != checksum.to_string() {
-                    r.historical_checksums.push(checksum.to_string());
-                    r.checksum = checksum.to_string();
+                let new_checksum = checksum.to_string();
+                if r.checksum != new_checksum {
+                    r.historical_checksums.push(new_checksum.clone());
+                    r.checksum = new_checksum;
                 }
-                // Remove resources from the hash map as we iterate
-                // through, so we can remove all resources from the
-                // catalog file that no longer have corresponding
-                // resource files.
-                catalog_resources.remove(&file_name);
+                orphaned_catalog_resources.remove(&file_name);
             }
             None => {
                 // rename the file to the current SHA-1 contents
-                let new_file_name = checksum.to_string();
-                let new_file_path = resource_path.parent().unwrap().join(new_file_name);
+                let checksum = checksum.to_string();
+                let new_file_path = resource_path.parent().unwrap().join(checksum.clone());
                 std::fs::rename(resource_path, new_file_path.clone()).unwrap();
 
-                let new_resource = Resource {
-                    title: file_name,
-                    authors: std::vec!(
-                        Name {
+                catalog_resources.insert(
+                    checksum.clone(),
+                    Resource {
+                        title: file_name,
+                        authors: std::vec!(Name {
                             first: None,
                             middle: None,
                             last: None,
-                        }
-                    ),
-                    date: {
-                        Date {
-                            year: None,
-                            month: None,
-                            day: None,
-                        }
+                        }),
+                        date: {
+                            Date {
+                                year: None,
+                                month: None,
+                                day: None,
+                            }
+                        },
+                        edition: None,
+                        publisher: None,
+                        organization: None,
+                        tags: std::vec!(),
+                        checksum: checksum.clone(),
+                        historical_checksums: std::vec!(checksum),
+                        resource_type: None,
                     },
-                    edition: None,
-                    publisher: None,
-                    organization: None,
-                    tags: std::vec!(),
-                    checksum: checksum.to_string(),
-                    historical_checksums: std::vec!(checksum.to_string()),
-                    resource_type: None,
-                };
-                catalog.resources.push(new_resource.clone());
+                );
             }
         }
     }
 
     // remove cataloged resources that are no longer in the resources
     // directory
-    let mut resource_hash = HashMap::<String, Resource>::new();
-    for resource in &catalog.resources {
-        resource_hash.insert(resource.historical_checksums[0].clone(), resource.clone());
+    for resource in orphaned_catalog_resources.iter() {
+        catalog_resources.remove(resource);
     }
-    for resource in catalog_resources.keys() {
-        resource_hash.remove(resource);
-    }
-    catalog.resources = resource_hash.values().cloned().collect();
+    catalog.resources = catalog_resources.values().cloned().collect();
     // sort resources by title in alphanumeric order
     catalog
         .resources
