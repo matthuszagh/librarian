@@ -248,7 +248,8 @@ fn librarian_register(
     catalog: &mut Catalog,
     resources_path: &PathBuf,
 ) {
-    // Hashmap of the SHA-1 checksum and path of each resource.
+    // Construct a hashmap of the SHA-1 checksum and path of each
+    // resource.
     let mut resources = HashMap::<String, PathBuf>::new();
     WalkDir::new(resources_path)
         .min_depth(1)
@@ -278,7 +279,11 @@ fn librarian_register(
             }
         });
 
-    update_resources(catalog, &resources, catalog_file);
+    update_catalog(catalog, &resources);
+
+    // write new catalog contents to file
+    clear_file(catalog_file);
+    serde_json::to_writer_pretty(catalog_file, &catalog).unwrap();
 }
 
 fn librarian_instantiate(catalog: &Catalog) {
@@ -342,22 +347,18 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
     sha
 }
 
-/// Add new resources to the catalog file and change the file to its
-/// current SHA-1 checksum.
+/// Update the catalog to reflect the current resources.
+///
+/// This function performs several tasks:
+/// 1. It adds new resources to the catalog.
+/// 2. Updates the checksums of files that have been modified.
+/// 3. Deletes catalog entries no longer backed by a resource (orphans).
 ///
 /// # Arguments
 ///
-/// * `resources` - File path and checksum for every file and
-/// directory in the resources directory.
-fn update_resources(
-    catalog: &mut Catalog,
-    resources: &HashMap<String, PathBuf>,
-    catalog_file: &mut std::fs::File,
-) {
-    // TODO this implementation could probably be more efficient
-
-    // TODO should probably be broken up into multiple functions
-
+/// * `catalog` - Library catalog.
+/// * `resources` - Checksum and file path for every resource.
+fn update_catalog(catalog: &mut Catalog, resources: &HashMap<String, PathBuf>) {
     // Create a hashmap of all cataloged resources for fast
     // lookup. The first entry of the hashmap is the initial checksum
     // of the resource, which is used to determine whether a resource
@@ -439,7 +440,4 @@ fn update_resources(
     catalog
         .resources
         .sort_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
-
-    clear_file(catalog_file);
-    serde_json::to_writer_pretty(catalog_file, &catalog).unwrap();
 }
