@@ -38,6 +38,7 @@ struct Resource {
     authors: Vec<Name>,
     date: Date,
     edition: Option<i32>,
+    version: Option<String>,
     publisher: Option<String>,
     organization: Option<String>,
     tags: Vec<String>,
@@ -418,6 +419,7 @@ fn update_catalog(catalog: &mut Catalog, resources: &HashMap<String, PathBuf>) {
                             }
                         },
                         edition: None,
+                        version: None,
                         publisher: None,
                         organization: None,
                         tags: std::vec!(),
