@@ -44,8 +44,9 @@ struct Resource {
     tags: Vec<String>,
     checksum: String,
     historical_checksums: Vec<String>,
-    /// Key of the catalog's extensions.
-    resource_type: Option<String>,
+    /// Document type (when applicable). This field is also used to
+    /// associate a resource with a file extension.
+    document_type: Option<String>,
 }
 
 /// Library "tag".
@@ -425,7 +426,7 @@ fn update_catalog(catalog: &mut Catalog, resources: &HashMap<String, PathBuf>) {
                         tags: std::vec!(),
                         checksum: checksum.clone(),
                         historical_checksums: std::vec!(checksum),
-                        resource_type: None,
+                        document_type: None,
                     },
                 );
             }
