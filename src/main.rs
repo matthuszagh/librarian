@@ -34,15 +34,25 @@ struct Date {
 /// directory (e.g., containing the contents of a webpage).
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct Resource {
+    /// Title.
     title: String,
+    /// Collection of all resource authors.
     authors: Vec<Name>,
+    /// Date of publication or creation. For a website this is the
+    /// date the website was last modified or archived. Sometimes it
+    /// is not possible to know when a website was last modified and
+    /// the archival date should be used instead.
     date: Date,
     edition: Option<i32>,
     version: Option<String>,
     publisher: Option<String>,
     organization: Option<String>,
     tags: Vec<String>,
+    /// Current SHA-1 checksum.
     checksum: String,
+    /// An ordered collection (oldest to most recent) of all previous
+    /// and current checksums of a resource. The current checksum is
+    /// the last item in the container.
     historical_checksums: Vec<String>,
     /// Document type (when applicable). This field is also used to
     /// associate a resource with a file extension.
