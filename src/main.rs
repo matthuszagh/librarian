@@ -3,7 +3,6 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use std::collections::{HashMap, HashSet};
-use std::env;
 use std::fs::{read, OpenOptions};
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -11,6 +10,7 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::string::String;
 use std::vec::Vec;
+use std::env;
 use walkdir::WalkDir;
 
 /// Name.
@@ -57,6 +57,7 @@ struct Resource {
     /// Document type (when applicable). This field is also used to
     /// associate a resource with a file extension.
     document_type: Option<String>,
+    resource_type: Option<String>,
 }
 
 /// Library "tag".
@@ -76,8 +77,25 @@ struct Instance {
     file_name_pattern: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/// BibTeX entry types.
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+enum BibtexType {
+    Article,
+    Book,
+    Manual,
+    Miscellaneous,
+    Online,
+    TechReport,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct ResourceType {
+    name: String,
+    bibtex: BibtexType,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+struct DocumentType {
     name: String,
     extension: String,
 }
@@ -86,7 +104,8 @@ struct ResourceType {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Catalog {
     tags: Vec<Tag>,
-    extensions: Vec<ResourceType>,
+    document_types: Vec<DocumentType>,
+    resource_types: Vec<ResourceType>,
     instances: Vec<Instance>,
     resources: Vec<Resource>,
 }
@@ -188,6 +207,18 @@ fn parse_app_args() -> clap::ArgMatches {
                     Arg::new("query")
                         .about("resource query")
                         .takes_value(true)
+                )
+        )
+        .subcommand(
+            App::new("bibliography")
+                .about("generate a bibliography")
+                .long_about("Generates a bibliography in a specified format and optionally restricted to a subset of catalog entries.")
+                .arg(
+                    Arg::new("format")
+                        .about("bibliographic format")
+                        .takes_value(true)
+                        .default_value("bibtex")
+                        .possible_values(&["bibtex"])
                 )
         )
         .get_matches()
@@ -298,7 +329,7 @@ fn librarian_register(
     serde_json::to_writer_pretty(catalog_file, &catalog).unwrap();
 }
 
-fn librarian_instantiate(catalog: &Catalog) {
+fn librarian_instantiate(_catalog: &Catalog) {
     // TODO not yet implemented
     // assert!(false);
 }
@@ -322,6 +353,10 @@ fn librarian_search(catalog: &Catalog, resources_path: &PathBuf, query: &String)
             println!("{:?}", resources_path.join(&r.historical_checksums[0]));
         });
 }
+
+// fn librarian_bibliography(format: ) {
+
+// }
 
 /// Compute a SHA1 checksum of a directory.
 ///
@@ -437,6 +472,7 @@ fn update_catalog(catalog: &mut Catalog, resources: &HashMap<String, PathBuf>) {
                         checksum: checksum.clone(),
                         historical_checksums: std::vec!(checksum),
                         document_type: None,
+                        resource_type: None,
                     },
                 );
             }
