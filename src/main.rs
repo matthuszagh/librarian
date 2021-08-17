@@ -144,6 +144,16 @@ fn main() {
                     .expect("must provide a search query"),
             ),
         );
+    } else if args.is_present("bibliography") {
+        librarian_bibliography(
+            &catalog,
+            &mut String::from(
+                args.subcommand_matches("bibliography")
+                    .unwrap()
+                    .value_of("format")
+                    .expect("must provide a search query"),
+            ),
+        );
     } else {
         // when no subcommand is provided, register all new files and
         // instantiate all directories
@@ -359,9 +369,20 @@ fn librarian_search(catalog: &Catalog, resources_path: &PathBuf, query: &String)
         });
 }
 
-// fn librarian_bibliography(format: ) {
+/// TODO
+fn librarian_bibliography(catalog: &Catalog, format: &mut String) {
+format.make_ascii_lowercase();
+    if *format == String::from("bibtex") {
+        librarian_bibtex(catalog);
+    }
+    else {
+        panic!("invalid bibliography format");
+    }
+}
 
-// }
+fn librarian_bibtex(catalog: &Catalog) {
+    // TODO
+}
 
 /// Compute a SHA1 checksum of a directory.
 ///
