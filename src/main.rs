@@ -88,9 +88,14 @@ enum BibtexType {
     TechReport,
 }
 
+/// Resource type.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct ResourceType {
+    /// Resource name. This must match the value of "resource_type"
+    /// for each resource.
     name: String,
+    /// BibTeX type associated with this resource type. This is used
+    /// when exporting the resource to a BibTeX entry.
     bibtex: BibtexType,
 }
 
