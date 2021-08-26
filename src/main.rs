@@ -3,6 +3,7 @@ use regex::Regex;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
 use std::collections::{HashMap, HashSet};
+use std::env;
 use std::fs::{read, OpenOptions};
 use std::io::prelude::*;
 use std::io::SeekFrom;
@@ -10,7 +11,6 @@ use std::io::{Read, Write};
 use std::path::PathBuf;
 use std::string::String;
 use std::vec::Vec;
-use std::env;
 use walkdir::WalkDir;
 
 /// Name.
@@ -27,6 +27,7 @@ struct Date {
     year: Option<i32>,
     month: Option<i32>,
     day: Option<i32>,
+    // TODO add time. what's the right format for this? Alex proposed a string. Is that a good idea?
 }
 
 /// Library "resource". This represents one unit of library content,
@@ -61,6 +62,8 @@ struct Resource {
 }
 
 /// Library "tag".
+//
+// How should I store this? One way is with name: String, parent: String.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Tag {}
 
@@ -79,6 +82,7 @@ struct Instance {
 
 /// BibTeX entry types.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
 enum BibtexType {
     Article,
     Book,
@@ -99,19 +103,52 @@ struct ResourceType {
     bibtex: BibtexType,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+/// Media type.
+///
+/// We've identified this as a MediaPrefix in order to distinguish it
+/// from MediaType, but it technically designates the "type".
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[serde(rename_all = "lowercase")]
+enum MediaPrefix {
+    Application,
+    Audio,
+    Image,
+    Message,
+    Multipart,
+    Text,
+    Video,
+    Font,
+    Example,
+    Model,
+}
+
+/// Media (formerly MIME) type.
+///
+/// TODO this should probably eventually have a custom deserializer so
+/// we can write a media type like application/pdf, etc.
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+struct MediaType {
+    r#type: MediaPrefix,
+    subtype: String,
+}
+
+/// Document type.
+///
+/// Classifies a document type according to an extension and media
+/// type.
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct DocumentType {
-    name: String,
     extension: String,
+    mime: Option<MediaType>,
 }
 
 /// Library catalog contained within the catalog.json file.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 struct Catalog {
-    tags: Vec<Tag>,
-    document_types: Vec<DocumentType>,
-    resource_types: Vec<ResourceType>,
-    instances: Vec<Instance>,
+    // tags: Vec<Tag>,
+    document_types: HashMap<String, DocumentType>,
+    resource_types: HashMap<String, BibtexType>,
+    // instances: Vec<Instance>,
     resources: Vec<Resource>,
 }
 
@@ -125,6 +162,8 @@ fn main() {
         .open(&catalog_path)
         .expect("Failed to open or create catalog");
     let mut catalog = read_catalog(&mut catalog_file);
+
+    // TODO It might be better to require the argument to be explicit.
 
     // Invoke the function for the appropriate subcommand. If no
     // subcommand is given, perform "register" followed by
@@ -278,9 +317,9 @@ fn read_catalog(catalog_file: &mut std::fs::File) -> Catalog {
     if catalog_contents == "" {
         let new_catalog_contents = concat!(
             "{\n",
-            "  \"tags\": [],\n",
+            // "  \"tags\": [],\n",
             "  \"extensions\": [],\n",
-            "  \"instances\": [],\n",
+            // "  \"instances\": [],\n",
             "  \"resources\": []\n",
             "}",
         );
@@ -371,16 +410,15 @@ fn librarian_search(catalog: &Catalog, resources_path: &PathBuf, query: &String)
 
 /// TODO
 fn librarian_bibliography(catalog: &Catalog, format: &mut String) {
-format.make_ascii_lowercase();
+    format.make_ascii_lowercase();
     if *format == String::from("bibtex") {
         librarian_bibtex(catalog);
-    }
-    else {
+    } else {
         panic!("invalid bibliography format");
     }
 }
 
-fn librarian_bibtex(catalog: &Catalog) {
+fn librarian_bibtex(_catalog: &Catalog) {
     // TODO
 }
 
