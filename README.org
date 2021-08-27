@@ -1,162 +1,310 @@
 * Introduction
-~librarian~ is a tool for managing a library of documents and other media. It is typically used for documents (such as PDF, epub, etc.), video files, and webpage archives, though it will work with any text or binary file or directory. Its primary goals are to:
+~librarian~ is a tool for managing a library of documents and other media. It is typically used for documents (such as PDF, epub, etc.), video files, and webpage archives, though it will work with any file (plain text or binary) or directory. Its primary goals are to:
 
 1. standardize file names and make the naming pattern declarative and easy to change,
 2. make document hierarchical organization declarative and compatible with a tags-based approach to classifying resources,
-3. and provide a persistant file path for each file.
+3. provide a persistant path for each resource,
+4. be exportable to a bibtex file format (and potentially others),
+5. and support extensive metainformation search capabilities.
 
 These goals and ~librarian~'s means of accomplishing them are elaborated below.
 
-* Basic Concepts
-~librarian~ works on a directory conforming to a basic structure, which it calls a "library". Let's assume this library is stored in a directory named ~library~, though it can be any valid directory name. A library's structure should conform to:
+* TODO Basic Concepts
+TODO config file syntax needs updating.
+
+~librarian~ works on a directory conforming to a basic structure, which it calls a "library". Let's assume this library is stored in a directory named ~library~, though it can be given any valid directory name. A library's structure should conform to:
 
 #+begin_src bash :eval no
 library
-├── config.json
-└── contents
+├── catalog.json
+└── resources
 #+end_src
 
-~config.json~ is a JSON configuration file where ~librarian~ looks for declarative information about the library. It's name can be changed, if desired.
+~catalog.json~ is a JSON configuration file where ~librarian~ looks for declarative information about the library's resources.
 
-~contents~ (resources?) is a directory containing a flat hierarchy of documents and directories. Each of the files or directories in ~contents~ is called a "resource". More specifically, they are called "original resources", since they are the original copy of this resource. Additional copies will be made, as we'll see later in "instances". The flat hierarchy means that all resources must be located directly within ~contents~ and cannot be nested. Some resources (e.g., archived web pages) are directories themselves and may also contain directories. That's fine. A directory and all its contained files (traversed recursively) is considered a single resource and in many respects will be treated identically to a single-file document. The name of the ~contents~ directory is not important, as long as it is consistent with the choice in the configuration file.
+~resources~ is a directory containing a flat hierarchy of files and directories. Each file or directory in ~resources~ is a called a resource and one resource cannot contain another. Some resources (e.g., archived web pages) are directories themselves and may also contain directories. That's fine. A directory and all its contained files (traversed recursively) is considered a single resource and in many respects will be treated identically to a single-file document.
 
-The ~config.json~ file contains three major subsections. A simple example file is shown below.
+The ~catalog.json~ file contains 5 major sections. A simple example file is shown below.
 
-#+begin_src json :eval no
+#+begin_src json :eval no :hidden
 {
-    "tags": {
-        "math": {
-            "calculus": {},
-            "algebra": {},
-            "general": {}
+    "tags": [
+        {
+            "name": "math",
+            "subtags": [
+                {
+                    "name": "calculus",
+                    "subtags": null
+                },
+                {
+                    "name": "algebra",
+                    "subtags": null
+                }
+            ]
         },
-        "science": {
-            "physics": {
-                "quantum mechanics": {}
-            },
-            "chemistry": {
-            },
-            "biology": {
-            }
+        {
+            "name": "science",
+            "subtags": [
+                {
+                    "name": "physics",
+                    "subtags": [
+                        {
+                            "name": "quantum mechanics",
+                            "subtags": null
+                        }
+                    ]
+                },
+                {
+                    "name": "chemistry",
+                    "subtags": null
+                },
+                {
+                    "name": "biology",
+                    "subtags": null
+                }
+            ]
         },
-        "engineering": {
-            "electronics": {
-                "general": {}
-            },
-            "computing": {
-                "algorithms": {}
-            }
+        {
+            "name": "engineering",
+            "subtags": [
+                {
+                    "name": "computing",
+                    "subtags": [
+                        {
+                            "name": "algorithms",
+                            "subtags": null
+                        }
+                    ]
+                },
+                {
+                    "name": "electronics",
+                    "subtags": null
+                }
+            ]
         }
-    },
+    ],
 
-    "instances": {
-        "primary": {
-            "instantiate tags": "primary",
-            "directory name space delimeter": "_",
-            "file name pattern": "@title@ (@authors[0]:last@, @edition@e - @year@).@extension@",
-            "filter": ""
+    "resource_types": [
+        {
+            "bibtex": "TechReport",
+            "name": "application note"
         },
-        "deduplicating": {
-            "instantiate tags": "all",
-            "directory name space delimeter": " ",
-            "file name pattern": "@title@ (@authors[0]:last@, @edition@e - @year@).@extension@",
+        {
+            "bibtex": "Article",
+            "name": "article"
+        },
+        {
+            "bibtex": "Book",
+            "name": "book"
+        },
+        {
+            "bibtex": "Manual",
+            "name": "datasheet"
+        },
+        {
+            "bibtex": "Manual",
+            "name": "manual"
+        },
+        {
+            "bibtex": "Miscellaneous",
+            "name": "presentation"
+        },
+        {
+            "bibtex": "Manual",
+            "name": "standard"
+        },
+        {
+            "bibtex": "Book",
+            "name": "textbook"
+        },
+        {
+            "bibtex": "Online",
+            "name": "website"
+        }
+    ],
+
+    "document_types": [
+        {
+            "name": "PDF",
+            "extension": "pdf"
+        },
+        {
+            "name": "website",
+            "extension": ""
+        }
+    ],
+
+    "instances": [
+        {
+            "name": "primary",
+            "filter": "",
+            "file_name_pattern": "@title@ (@authors[0]:last@, @edition@e - @year@).@extension@",
+            "directory_name_space_delimeter": "_",
+            "instantiate_tags": "primary"
+        },
+        {
+            "name": "deduplicating",
             "filter": {
-                "tags": "*",
+                "size": "< 500",
                 "extension": "pdf",
-                "size": "< 500"
-            }
+                "tags": "*"
+            },
+            "file_name_pattern": "@title@ (@authors[0]:last@, @edition@e - @year@).@extension@",
+            "directory_name_space_delimeter": " ",
+            "instantiate_tags": "all"
         }
-    },
+    ],
 
-    "resources": {
-        "1f41a02ac620f0388a8e40454b48f67137820dcb": {
+    "resources": [
+        {
             "title": "Microelectronic Circuits",
             "authors": [
                 {
-                    "first": "Adel",
+                    "last": "Sedra",
                     "middle": "S.",
-                    "last": "Sedra"
+                    "first": "Adel"
                 },
                 {
-                    "first": "Kenneth",
+                    "last": "Smith",
                     "middle": "C.",
-                    "last": "Smith"
+                    "first": "Kenneth"
                 }
             ],
+            "date": {
+                "day": 0,
+                "month": 0,
+                "year": 2014
+            },
             "edition": 7,
-            "year": 2014,
+            "version": null,
             "publisher": "Oxford University Press",
-            "tags": ["electronics:general"],
-            "checksum": "sha1-1f41a02ac620f0388a8e40454b48f67137820dcb",
-            "previous checksums": ["sha1-1f41a02ac620f0388a8e40454b48f67137820dcb"]
+            "organization": "organization",
+            "tags": [ "electronics" ],
+            "checksum": "1f41a02ac620f0388a8e40454b48f67137820dcb",
+            "historical_checksums": [
+                "1f41a02ac620f0388a8e40454b48f67137820dcb"
+            ],
+            "document_type": "PDF",
+            "resource_type": "textbook"
         },
-        "2aec674c6d78a0a596529e1ef94f24c9ae625179": {
-            "title": "The Princeton Companion to Mathematics",
+        {
+            "title": "BFG591",
             "authors": [
                 {
-                    "first": "Timothy",
-                    "middle": "",
-                    "last": "Gowers"
-                },
-                {
-                    "first": "June",
-                    "middle": "",
-                    "last": "Barrow-Green"
-                },
-                {
-                    "first": "Imre",
-                    "middle": "",
-                    "last": "Leader"
+                    "last": "name",
+                    "middle": "name",
+                    "first": "name"
                 }
             ],
-            "edition": 1,
-            "year": 2008,
-            "publisher": "Princeton University Press",
-            "tags": ["math:general"],
-            "checksum": "sha1-2aec674c6d78a0a596529e1ef94f24c9ae625179",
-            "previous checksums": ["sha1-2aec674c6d78a0a596529e1ef94f24c9ae625179"]
+            "date": {
+                "day": 4,
+                "month": 9,
+                "year": 1995
+            },
+            "edition": 0,
+            "version": "version",
+            "publisher": "publisher",
+            "organization": "NXP Semiconductors",
+            "tags": [ "electronics" ],
+            "checksum": "0e7cddd8f41639bc486c9d95843ceb9db8c06299",
+            "historical_checksums": [
+                "0e7cddd8f41639bc486c9d95843ceb9db8c06299"
+            ],
+            "document_type": "PDF",
+            "resource_type": "datasheet"
         }
-    }
+    ]
 }
 #+end_src
 
-The first section is a hierarchy of tags. Zero or more tags are associated with each resource. ~librarian~ uses this hierarchy along with the tags associated with each resource to construct hierarchical directories of library files, called "instances".
+The first section is a hierarchy of tags. Zero or more tags are associated with each resource. ~librarian~ uses this hierarchy along with the tags associated with each resource to construct hierarchical directories of library files, called "instances". ~librarian~ can create an instance anywhere within the filesystem. In an instance, the tag hierarchy is translated into a directory hierarchy with each directory getting the name of a tag. For example, in the catalog above, one of the top level instance directories would be "math", with subdirectories of "calculus" and "algebra".
 
-~librarian~ can create an instance anywhere within or outside the filesystem, though often an instance is placed in a subdirectory of the library. When an instance is created within the same filesystem as ~contents~, ~librarian~ will use hardlinks to avoid creating multiple copies of each file. In an instance, each file is placed according to its tags, the location of tags in the hierarchy and other information, which will be discussed momentarily. These files are called "clone resources", since they are content-identical copies of the "original resource".
+To a first approximation, a resource is placed at each location where one of its tags appears in the hierarchy. There are several important exceptions to this, and other qualifiers worth mentioning. First, a resource is only placed at a tag location if it does not also have another tag that is a subtag of this tag. So, in our catalog above, if a resource is associated with "math" and "calculus", it will only appear under "calculus". If, on the other hand, it is associated with tags "math", "calculus", and "algebra", it will appear under "calculus" and "algebra". Additionally, the instance configuration places possible limits on this. The "instantiate_tags" key can take values of "primary" and "all". If "all" is given, the resource will be placed at the directory locations for all tags. If "primary" is given, the resource will only be placed at the location of the first tag. Instantiations can also filter resources based on metainformation, such as type of resource and file size. Finally, resources are always hardlinked to each instance location in order to avoid storage waste on filesystems lacking built-in deduplication facilities.
 
-A standard instance places a file at the corresponding location for each of its tags. This means that many files will be placed at multiple locations within the instance. Fortunately, when possible, ~librarian~ uses hardlinks so that this file duplication does not use additional storage.
+Instances also provide declarative file and directory naming syntaxes. These are specified in the "file_name_pattern" and "directory_name_space_delimeter" keys. This permits easy migration between file naming patterns and directory word separators.
 
-Instances are customizable. In particular, many instances (especially those destined for cloud storage or similar), would prefer just a single copy of each file. This can be done with ~"instantiate tags": "primary"~, as shown in the example above. To place a file at each tag location, use "instantiate tags": "all". The primary tag is the first tag that appears in each file's list of tags. Instances also support filtering based on types of file, size, and tags. Moreover, they can specify the delimeter used for spaces in directory names and a file name pattern.
+The "resource_types" section enumerates zero or more resource types and associates each type with a BibTeX type. This information is used when generating BibTeX files.
 
-The last section is the contents section. This contains an entry for each file in the ~contents~ subdirectory. If a file is contained in the subdirectory, but is not present in the configuration file, ~librarian~ will create a placeholder entry for you in the configuration file. The key for each entry is a checksum string based on the file's contents when the file was first registered. The checksum standard is unimportant, though ~librarian~ currently uses the SHA1 standard; we assume that the checksum of one algorithm will not collide with the checksum from another standard. This key is simply meant to uniquely and persistently identify the file.
+The "document_types" section specifies document types and associates each with a file extension that can be used as part of the file naming in an instance.
 
-Each entry contains a number of other keys, providing meta information about the file. One key is the "checksum" key, which gives the current checksum of the file's contents. There is also a "previous checksums" key, which gives all previous checksums in reverse order of when they were applicable (the file name will correspond to the last checksum in the list). ~librarian~ currently doesn't use the previous checksums, but it records it in case they're useful for other tools.
+The final section, "resources", is where all the resources and their metainformation is enumerated. When a new resource is placed in the "resources" directory, we can use librarian to "catalog" that resource. Cataloging performs several functions. First, it iterates through each resource and computes a (SHA-1) checksum of that resource's contents (but not its name or position in the filesystem). If a resource is a directory, librarian computes a checksum of the full, recursive contents. Again, this checksum is computed relative to the directory in which it is stored. This makes it trivial to move a library without upsetting checksum values. ~librarian~ then looks through the existing catalog file and creates a new entry template for each new resource (without an existing entry). It does this by comparing the resource's file name to its first historical checksum value. ~librarian~ then renames the resource to the checksum it computed for it. When the contents of a resource changes, ~librarian~ updates it's checksum and appends the new checksum to "historical_checksums". It does not, however, rename the resource. This is because one of the principle goals of ~librarian~ is to provide persistant resource naming (for at least one copy, obviously resource names within instances will change). ~librarian~ will also delete all but one copy of a resource (as indicated by its checksum).
 
-There a number of other keys, such as "title", "authors", "year", "publisher", etc. These are used to populate parts of the file name in an instance, and to generate a bibliography.
+Some of the resource field are required, but most are optional. Keep in mind that while ~librarian~ is fine with null fields, BibTeX may not be.
 
-A new file is added as an original resource by adding it (with any name) to the contents directory. Running ~librarian register~ will compute the new file's checksum, add it to the configuration file and change the file's name to correspond to this initial checksum. This command will also add keys and their values to the entry for information it knows, and leave the information it doesn't know empty.
+There are very good existing tools for searching file names within a hierarchy. ~librarian~ will not duplicate this functionality. However, it will provide a rich syntax for querying resources within the "resources" directory, which are otherwise very inconveniently named for normal searching strategies. The syntax for this is not yet decided, but it will include regex (within limitation) and other convenient searches (e.g., return matches for resources whose metainformation contains all of the words in a search query).
 
-** tags
-I think tags may need some reconsideration. For example, given a quantum mechanics textbook, a natural choice might be to give this the tags "physics" and "quantum mechanics". If we did this we'd get the hierarchy (assuming the obvious instance structure)
+* Searching
+The current search implementation only supports fuzzy or regex searching all fields of a resource. A future implementation will permit a much richer query syntax described in the subsection below.
 
-#+begin_src bash :eval no
-└── physics
-    ├── qmtext.pdf
-    └── quantum_mechanics
-        └── qmtext.pdf
-#+end_src
+** TODO query language
+*** interface
+I like the search syntax used by [[id:c8257ca3-41c8-4f13-befd-a119546df063][Recoll]].
 
-This is probably not what we want. Instead, the following is most likely preferable for most people.
+I think what I'll do is to have a flag type specifier ~--type~ allowing the use of fuzzy matching or regex matching. The default is fuzzy. Then, the query string will have the same syntax in each. That is, a simple string, i.e.,
 
 #+begin_src bash :eval no
-└── physics
-    └── quantum_mechanics
-        └── qmtext.pdf
+librarian search string
 #+end_src
 
-We could solve this issue at instantiation by only instantiating a resource at a tag node if that tag does not have a child tag also containing that resource.
+will return a resource if "string" matches any of the resource fields. A string search with a space must be quoted. For example,
 
-*** TODO qualified tags
+#+begin_src bash :eval no
+librarian search "some string"
+#+end_src
+
+A field qualifier can be prepended to a query string to restrict the match to the corresponding resource field. The field qualifier uses the syntax ~field:query~. For example,
+
+#+begin_src bash :eval no
+librarian search title:"some title"
+#+end_src
+
+would return a resource if the title matches "some title". Note that fuzzy and regex do not apply to the field qualifier: this must match exactly. The value of some fields (e.g., tags) are arrays. Librarian handles this by matching each element of the array individually. For example,
+
+#+begin_src bash :eval no
+librarian search tags:electronics
+#+end_src
+
+would return a resource if one its tags matches "electronics".
+
+Multiple queries can be combined to specify that librarian should match the queries using some combination of "and" and "or". "And" combinations are made by separating the queries with a space, while "or" combinations use a comma.
+
+For example,
+
+#+begin_src bash :eval no
+librarian search title:micro tags:electronics
+#+end_src
+
+places an implicit and between "title:micro" and "tags:electronics". Therefore, a resource will be returned if title matches micro and at least one of the tags matches electronics.
+
+In computer science terminology, "or" has higher precedence than "and", so that
+
+#+begin_src bash :eval no
+librarian search tags:electronics title:"phase noise",title:oscillator
+#+end_src
+
+would be treated logically like ~tags:electronics AND (title:"phase noise" OR title:oscillator)~.
+
+You can specify that a resource must not match a query by prefixing it with "-". This precedes the field specifier if there is one.
+
+*** implementation
+**** query parser
+It probably makes sense to define a formal grammar and have some external library perform this step. The trick may be how to get it into the binary tree I want.
+
+**** binary tree
+A binary tree is a very natural data structure for this query language. Each leaf node contains a "match string", a "match type", a "field qualifier" and a "logical modifier". The match string is a string to match against. For example, "electronics", or "quantum mechanics". The match type specifies how that string should be matched against the resource. For example, using fuzzy matching, or a regular expression. The field qualifier optionally restricts the match to a single resource field (otherwise, it is an implicit OR of all resource fields). The logical modifier can optionally negate the result of a match.
+
+Each branch (i.e., non-leaf) node has its two children plus a "logical combiner", which specifies how to combine two child nodes (i.e., with AND or OR).
+
+Each query of a resource corresponds to a complete binary tree. The resource matches the query if the root node evaluates to true. In general we do need to evaluate the child nodes in order to know the value of the root node. However, we don't always need to evaluate all child nodes. For example, if a parent node uses an OR logical combiner and the first child evaluates to true, we do not need to evaluate the other child node.
+
+To implement this, we must:
+
+- implement the data structure for each node (how do we handle the fact that leaf and branch nodes are different types?)
+- be able to evaluate whether a match evaluates to true or false given a node and a resource
+- be able to "reduce" a branch to a leaf node (this is obviously a recursive call from the root node)
+
+* Tags
+** TODO qualified tags
 TODO I'm not sure if this is a good idea. It may be better to place files directly within the electronics and math hierarchies than in "general" subdirectories of them.
 
 There may be instances in which we want a tag to be a qualification of another tag. For example, perhaps we want one file to appear under "electronics/general"  (call this file1) and some other file to appear under "math/general" (file 2). If we give file1 the tags ["electronics", "general"] and file2 the tags ["math", "general"], we'll wind up with the directory structure
@@ -184,6 +332,9 @@ which is not what we want. Instead, we want
 #+end_src
 
 To accomplish this, we can qualify a tag. So, instead of giving file1 the tags ["electronics", "general"], we'd give it ["electronics:general"].
+
+** TODO make tag hierarchy instance-specific
+There should probably be a list of acceptable tags and then a tag hierarchy in each instance. It seems reasonable that someone might want different hierarchies for different instances.
 
 * Arguments
 ** Subcommands
@@ -245,13 +396,30 @@ It would be useful to be able to call a user-defined rust function on a string i
 Before a file is opened, it should be passed around as a ~PathBuf~. After it has been opened, it should be passed around as a ~std::fs::File~.
 
 * Task List
+** TODO initialize field values to information provided by the document
+For example, with PDF use metadata.
+
+** TODO provide a summary of changes after registering new resources
+Something like:
+
+#+begin_example
+New resources:
+PDF 32000 Standard (v1.7, 2008).pdf -> 1da235fe14c82f0a1bcdb3cc309b7b714d881b8c
+
+Modified resources:
+(None)
+
+Deleted catalog resources (orphans):
+542b4e6da11c31dc94f81105583784a8ac365e0e (title: Oscillator design guide for STM8AF/AL/S and STM32 microcontrollers)
+#+end_example
+
+** TODO titles can have slashes, which should be replaced in instantiations
 ** TODO add a config file that records the location of the library so you don't need to pass it when invoking librarian
 ** TODO should I support other checksum formats than sha1?
 ** TODO rename contents to resources
 ** TODO should "original resource" be renamed to "primary resource"
 If so, we may want to change "clone resource" to "secondary resource".
 
-** TODO should resource be renamed to reference?
 ** TODO does anything need to be changed to handle other binary files such as firmware?
 The current conception of this tool should technically work, but the question is whether the abstraction is still a nice one for binary files. For example, does the somewhat rigid field structure for resources (title, author, year, edition, publisher, etc.) not work well for other kinds of files.
 
