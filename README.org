@@ -234,19 +234,13 @@ Some of the resource field are required, but most are optional. Keep in mind tha
 There are very good existing tools for searching file names within a hierarchy. ~librarian~ will not duplicate this functionality. However, it will provide a rich syntax for querying resources within the "resources" directory, which are otherwise very inconveniently named for normal searching strategies. The syntax for this is not yet decided, but it will include regex (within limitation) and other convenient searches (e.g., return matches for resources whose metainformation contains all of the words in a search query).
 
 * Searching
-The current search implementation only supports fuzzy or regex searching all fields of a resource. A future implementation will permit a much richer query syntax described in the subsection below.
-
-** TODO query language
-*** interface
-I like the search syntax used by [[id:c8257ca3-41c8-4f13-befd-a119546df063][Recoll]].
-
-I think what I'll do is to have a flag type specifier ~--type~ allowing the use of fuzzy matching or regex matching. The default is fuzzy. Then, the query string will have the same syntax in each. That is, a simple string, i.e.,
+Librarian provides a rich query syntax for retrieving resource metadata. A simple search has the syntax
 
 #+begin_src bash :eval no
 librarian search string
 #+end_src
 
-will return a resource if "string" matches any of the resource fields. A string search with a space must be quoted. For example,
+This will return resource metadata as JSON if "string" fuzzy matches any of the resource fields. A string search with a space must be quoted. For example,
 
 #+begin_src bash :eval no
 librarian search "some string"
@@ -258,7 +252,11 @@ A field qualifier can be prepended to a query string to restrict the match to th
 librarian search title:"some title"
 #+end_src
 
-would return a resource if the title matches "some title". Note that fuzzy and regex do not apply to the field qualifier: this must match exactly. The value of some fields (e.g., tags) are arrays. Librarian handles this by matching each element of the array individually. For example,
+would return a resource if the title matches "some title".
+
+Librarian assumes fuzzy matching by default, but regular expression and exact matching are also supported. An exact string match uses the syntax e"exact" and a regular expression string match uses the syntax r"regex".
+
+The value of some fields (e.g., tags) are arrays. Librarian handles this by matching each element of the array individually. For example,
 
 #+begin_src bash :eval no
 librarian search tags:electronics
@@ -276,7 +274,7 @@ librarian search title:micro tags:electronics
 
 places an implicit and between "title:micro" and "tags:electronics". Therefore, a resource will be returned if title matches micro and at least one of the tags matches electronics.
 
-In computer science terminology, "or" has higher precedence than "and", so that
+To borrow from the terminology of math and computer science, "or" has higher precedence than "and", so that
 
 #+begin_src bash :eval no
 librarian search tags:electronics title:"phase noise",title:oscillator
@@ -284,9 +282,82 @@ librarian search tags:electronics title:"phase noise",title:oscillator
 
 would be treated logically like ~tags:electronics AND (title:"phase noise" OR title:oscillator)~.
 
-You can specify that a resource must not match a query by prefixing it with "-". This precedes the field specifier if there is one.
+You can specify that a resource must not match a query by prefixing it with "-". This precedes the field specifier if there is one. E.g.,
+
+#+begin_src bash :eval no
+librarian search -tags:electronics
+#+end_src
+
+We are free to mix matching algorithms (e.g., regex, exact, and fuzzy) in multi-match queries. Therefore, a previous query could have been instead
+
+#+begin_src bash :eval no
+librarian search tags:electronics title:r"phase[\- ]noise",title:oscillator
+#+end_src
+
+(TODO verify that regex query is syntactically correct).
+
+Finally, parentheses can be used to override operator precedence and to negative combinations of matches. For example,
+
+#+begin_src bash :eval no
+librarian search -(tags:electronics title:"phase noise"),title:oscillator
+#+end_src
+
+would return a resource only if the title matched "oscillator", or didn't match both the tag being "electronics" and the title being "phase noise".
 
 *** implementation
+**** grammar
+Consider the highest-level element as a "query".
+
+#+begin_src bnf
+<query> ::= <match>
+        | <combination>
+
+<combination> ::= <match> <operator> <match>
+              | <match> <operator> <opt-neg-lparen> <combination> ")"
+              | <opt-neg-lparen> <combination> ")" <operator> <match>
+              | <opt-neg-lparen> <combination> ")" <operator> <opt-neg-lparen> <combination> ")"
+
+<opt-neg-lparen> ::= "("
+                 | "-" "("
+
+<operator> ::= <whitespace>
+           | <opt-whitespace> "," <opt-whitespace>
+
+<whitespace> ::=
+
+<opt-whitespace> ::= " " <opt-whitespace>
+                 | "\t" <opt-whitespace>
+                 | ""
+
+<opt-neg-match> ::= <match>
+                | "-" <match>
+
+<match> ::= <string>
+        | <field> ":" <string>
+
+; TODO str needs clarification
+<string> ::= str
+         | \"str\"
+         | <string-modifier> \"str\"
+
+<string-modifier> ::= "r"
+                  | "e"
+
+<field> ::= "title"
+        | "authors"
+        | "date"
+        | "edition"
+        | "version"
+        | "publisher"
+        | "organization"
+        | "tags"
+        | "document_type"
+        | "content_type"
+        | "url"
+        | "checksum"
+        | "historical_checksums"
+#+end_src
+
 **** query parser
 It probably makes sense to define a formal grammar and have some external library perform this step. The trick may be how to get it into the binary tree I want.
 
