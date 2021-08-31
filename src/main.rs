@@ -36,11 +36,6 @@ fn main() {
     } else if args.is_present("search") {
         librarian_search(
             &catalog,
-            &resources_path,
-            args.subcommand_matches("search")
-                .unwrap()
-                .value_of("type")
-                .unwrap(),
             args.subcommand_matches("search")
                 .unwrap()
                 .value_of("query")
@@ -110,15 +105,6 @@ fn parse_app_args() -> clap::ArgMatches {
         .subcommand(
             App::new("search")
                 .about("retrieve a resource based on its metainformation")
-                .arg(
-                    Arg::new("type")
-                        .about("search type")
-                        .short('t')
-                        .long("type")
-                        .takes_value(true)
-                        .default_value("fuzzy")
-                        .possible_values(&["fuzzy", "regex"])
-                )
                 .arg(
                     Arg::new("query")
                         .about("resource query")

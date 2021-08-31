@@ -1,5 +1,8 @@
 use crate::bibtex::BibtexType;
 
+use fuzzy_matcher::skim::SkimMatcherV2;
+use fuzzy_matcher::FuzzyMatcher;
+// use regex::Regex;
 use serde::{Deserialize, Serialize};
 use url::Url;
 
@@ -111,24 +114,87 @@ pub struct Resource {
 }
 
 impl Resource {
-    // fn fuzzy_match(&self, query: &str) -> bool {
-    //     self.fuzzy_match_field("title", query)
-    //         || self.fuzzy_match_field("authors", query)
-    //         || self.fuzzy_match_field("date", query)
-    //         || self.fuzzy_match_field("edition", query)
-    //         || self.fuzzy_match_field("version", query)
-    //         || self.fuzzy_match_field("publisher", query)
-    //         || self.fuzzy_match_field("organization", query)
-    //         || self.fuzzy_match_field("tags", query)
-    //         || self.fuzzy_match_field("document_type", query)
-    //         || self.fuzzy_match_field("content_type", query)
-    //         || self.fuzzy_match_field("url", query)
-    //         || self.fuzzy_match_field("checksum", query)
-    //         || self.fuzzy_match_field("historical_checksums", query)
-    // }
+    pub fn fuzzy_match(&self, query: &str) -> bool {
+        self.fuzzy_match_field("title", query)
+            || self.fuzzy_match_field("authors", query)
+            || self.fuzzy_match_field("date", query)
+            || self.fuzzy_match_field("edition", query)
+            || self.fuzzy_match_field("version", query)
+            || self.fuzzy_match_field("publisher", query)
+            || self.fuzzy_match_field("organization", query)
+            || self.fuzzy_match_field("tags", query)
+            || self.fuzzy_match_field("document_type", query)
+            || self.fuzzy_match_field("content_type", query)
+            || self.fuzzy_match_field("url", query)
+            || self.fuzzy_match_field("checksum", query)
+            || self.fuzzy_match_field("historical_checksums", query)
+    }
 
-    // fn fuzzy_match_field(&self, field: &str, query: &str) -> bool {
-    //     // TODO implement
-    //     false
-    // }
+    pub fn fuzzy_match_field(&self, field: &str, query: &str) -> bool {
+        let matcher = SkimMatcherV2::default();
+
+        return match field {
+            "title" => matcher.fuzzy_match(&self.title, query).is_some(),
+            "authors" => self.authors.iter().any(|a| match &a.first {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            } || match &a.middle {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            } || match &a.last {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            }),
+            "date" => {
+                (match self.date.year {
+                    Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                    None => false,
+                }) || (match self.date.month {
+                    Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                    None => false,
+                }) || (match self.date.day {
+                    Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                    None => false,
+                })
+            }
+            "edition" => match self.edition {
+                Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                None => false,
+            },
+            "version" => match &self.version {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "publisher" => match &self.publisher {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "organization" => match &self.organization {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "tags" => self
+                .tags
+                .iter()
+                .any(|t| matcher.fuzzy_match(&t, query).is_some()),
+            "document_type" => match &self.document_type {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "content_type" => match &self.content_type {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "url" => match &self.url {
+                Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                None => false,
+            },
+            "checksum" => matcher.fuzzy_match(&self.checksum, query).is_some(),
+            "historical_checksums" => self
+                .historical_checksums
+                .iter()
+                .any(|c| matcher.fuzzy_match(&c, query).is_some()),
+            &_ => panic!("invalid field"),
+        };
+    }
 }

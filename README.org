@@ -305,6 +305,8 @@ librarian search -(tags:electronics title:"phase noise"),title:oscillator
 would return a resource only if the title matched "oscillator", or didn't match both the tag being "electronics" and the title being "phase noise".
 
 *** implementation
+A field unqualified match is identical to an implicit OR of the same match applied to every field. That is ~electronics~ is the same as ~title:electronics,authors:electronics,...~. In the parse tree we should probably replace the former with the latter since it's easier to process.
+
 **** grammar
 Consider the highest-level element as a "query".
 

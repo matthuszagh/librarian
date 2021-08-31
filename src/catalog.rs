@@ -1,5 +1,5 @@
 use crate::bibtex::BibtexType;
-use crate::resource::{DocumentType, Name, Resource, Date};
+use crate::resource::{Date, DocumentType, Name, Resource};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -137,7 +137,8 @@ impl Catalog {
             let new_catalog_contents = concat!(
                 "{\n",
                 // "  \"tags\": [],\n",
-                "  \"extensions\": [],\n",
+                "  \"document_types\": {},\n",
+                "  \"content_types\": {},\n",
                 // "  \"instances\": [],\n",
                 "  \"resources\": []\n",
                 "}",
