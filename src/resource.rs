@@ -196,19 +196,93 @@ impl From<DateTime> for String {
                 },
                 None => format!("{:04}", y),
             },
-            None => "".to_string(),
+            None => format!(""),
         }
     }
 }
 
 /// Name.
-///
-/// TODO implement custom serialization/deserialization.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[serde(try_from = "&str", into = "String")]
 pub struct Name {
     pub first: Option<String>,
     pub middle: Option<String>,
     pub last: Option<String>,
+}
+
+impl Name {
+    pub fn new() -> Name {
+        Name {
+            first: None,
+            middle: None,
+            last: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct NameParseError {
+    details: String,
+}
+
+impl NameParseError {
+    fn new(msg: &str) -> NameParseError {
+        NameParseError {
+            details: msg.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for NameParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for NameParseError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
+impl TryFrom<&str> for Name {
+    type Error = NameParseError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let mut name = Name::new();
+        let subnames: Vec<&str> = s.split(" ").collect();
+        if subnames.len() > 3 {
+            return Err(NameParseError::new(
+                "A name can only contain a maximum of 3 parts.",
+            ));
+        } else if subnames.len() == 3 {
+            name.first = Some(subnames[0].to_string());
+            name.middle = Some(subnames[1].to_string());
+            name.last = Some(subnames[2].to_string());
+        } else if subnames.len() == 2 {
+            name.first = Some(subnames[0].to_string());
+            name.last = Some(subnames[1].to_string());
+        } else if subnames.len() == 1 {
+            name.last = Some(subnames[0].to_string());
+        }
+
+        Ok(name)
+    }
+}
+
+impl From<Name> for String {
+    fn from(name: Name) -> Self {
+        match name.last {
+            Some(l) => match name.first {
+                Some(f) => match name.middle {
+                    Some(m) => format!("{} {} {}", f, m, l),
+                    None => format!("{} {}", f, l),
+                },
+                None => format!("{}", l),
+            },
+            None => format!(""),
+        }
+    }
 }
 
 /// Library "resource". This represents one unit of library content,

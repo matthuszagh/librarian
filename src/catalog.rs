@@ -1,5 +1,5 @@
 use crate::bibtex::BibtexType;
-use crate::resource::{DocumentType, Name, Resource};
+use crate::resource::{DocumentType, Resource};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -79,11 +79,7 @@ impl Catalog {
                         checksum.clone(),
                         Resource {
                             title: file_name,
-                            authors: std::vec!(Name {
-                                first: None,
-                                middle: None,
-                                last: None,
-                            }),
+                            authors: std::vec!(),
                             datetime: None,
                             edition: None,
                             version: None,
