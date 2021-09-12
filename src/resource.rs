@@ -46,13 +46,69 @@ enum MediaPrefix {
 }
 
 /// Media (formerly MIME) type.
-///
-/// TODO this should probably eventually have a custom deserializer so
-/// we can write a media type like application/pdf, etc.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[serde(try_from = "&str", into = "String")]
 struct MediaType {
     r#type: MediaPrefix,
     subtype: String,
+}
+
+#[derive(Debug)]
+pub struct MediaTypeParseError {
+    details: String,
+}
+
+impl MediaTypeParseError {
+    fn new(msg: &str) -> MediaTypeParseError {
+        MediaTypeParseError {
+            details: msg.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for MediaTypeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for MediaTypeParseError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
+impl TryFrom<&str> for MediaType {
+    type Error = MediaTypeParseError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let media_type_components: Vec<&str> = s.split("/").collect();
+
+        if media_type_components.len() != 2 {
+            return Err(MediaTypeParseError::new(
+                "A media type must contain a type and subtype.",
+            ));
+        }
+
+        let media_type_prefix = format!("\"{}\"", media_type_components[0]);
+        Ok(MediaType {
+            r#type: serde_json::from_str(&media_type_prefix).unwrap(),
+            subtype: media_type_components[1].to_string(),
+        })
+    }
+}
+
+impl From<MediaType> for String {
+    fn from(media_type: MediaType) -> Self {
+        let type_string = serde_json::to_string(&media_type.r#type).unwrap();
+        format!(
+            "{}/{}",
+            // serde_json includes quotes at the beginning and end of
+            // the string that we don't want here.
+            type_string[1..type_string.len() - 1].to_string(),
+            media_type.subtype
+        )
+    }
 }
 
 /// Document type.
