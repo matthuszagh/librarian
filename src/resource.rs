@@ -2,6 +2,9 @@ use crate::bibtex::BibtexType;
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use std::convert::TryFrom;
+use std::error::Error;
+use std::fmt;
 // use regex::Regex;
 use serde::{Deserialize, Serialize};
 use url::Url;
@@ -62,15 +65,145 @@ pub struct DocumentType {
     mime: Option<MediaType>,
 }
 
-/// Date.
+/// DateTime.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
-pub struct Date {
+#[serde(try_from = "&str", into = "String")]
+pub struct DateTime {
     pub year: Option<i32>,
     pub month: Option<i32>,
     pub day: Option<i32>,
+    pub hour: Option<i32>,
+    pub minute: Option<i32>,
+    pub second: Option<i32>,
+}
+
+impl DateTime {
+    pub fn new() -> DateTime {
+        DateTime {
+            year: None,
+            month: None,
+            day: None,
+            hour: None,
+            minute: None,
+            second: None,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DateTimeParseError {
+    details: String,
+}
+
+impl DateTimeParseError {
+    fn new(msg: &str) -> DateTimeParseError {
+        DateTimeParseError {
+            details: msg.to_string(),
+        }
+    }
+}
+
+impl fmt::Display for DateTimeParseError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.details)
+    }
+}
+
+impl Error for DateTimeParseError {
+    fn description(&self) -> &str {
+        &self.details
+    }
+}
+
+impl TryFrom<&str> for DateTime {
+    type Error = DateTimeParseError;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        let mut datetime = DateTime::new();
+        let len = s.len();
+
+        if len >= 4 {
+            datetime.year = Some(i32::from_str_radix(&s[..4], 10).unwrap());
+
+            if len >= 7 {
+                let month = i32::from_str_radix(&s[5..7], 10).unwrap();
+                if month < 1 || month > 12 {
+                    return Err(DateTimeParseError::new("month must be between 1 and 12"));
+                }
+                datetime.month = Some(month);
+
+                if len >= 10 {
+                    let day = i32::from_str_radix(&s[8..10], 10).unwrap();
+                    if day < 1 || day > 31 {
+                        return Err(DateTimeParseError::new("day must be between 1 and 31"));
+                    }
+                    datetime.day = Some(day);
+
+                    if len >= 13 {
+                        let hour = i32::from_str_radix(&s[11..13], 10).unwrap();
+                        if hour < 0 || hour > 23 {
+                            return Err(DateTimeParseError::new("hour must be between 0 and 23"));
+                        }
+                        datetime.hour = Some(hour);
+
+                        if len >= 16 {
+                            let minute = i32::from_str_radix(&s[14..16], 10).unwrap();
+                            if minute < 0 || minute > 59 {
+                                return Err(DateTimeParseError::new(
+                                    "minute must be between 0 and 59",
+                                ));
+                            }
+                            datetime.minute = Some(minute);
+
+                            if len >= 19 {
+                                let second = i32::from_str_radix(&s[17..19], 10).unwrap();
+                                if second < 0 || second > 59 {
+                                    return Err(DateTimeParseError::new(
+                                        "second must be between 0 and 59",
+                                    ));
+                                }
+                                datetime.second = Some(second);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        Ok(datetime)
+    }
+}
+
+impl From<DateTime> for String {
+    fn from(datetime: DateTime) -> Self {
+        match datetime.year {
+            Some(y) => match datetime.month {
+                Some(m) => match datetime.day {
+                    Some(d) => match datetime.hour {
+                        Some(h) => match datetime.minute {
+                            Some(min) => match datetime.second {
+                                Some(s) => format!(
+                                    "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+                                    y, m, d, h, min, s
+                                ),
+                                None => format!("{:04}-{:02}-{:02} {:02}:{:02}", y, m, d, h, min),
+                            },
+                            None => format!("{:04}-{:02}-{:02} {:02}", y, m, d, h),
+                        },
+                        None => format!("{:04}-{:02}-{:02}", y, m, d),
+                    },
+                    None => format!("{:04}-{:02}", y, m),
+                },
+                None => format!("{:04}", y),
+            },
+            None => "".to_string(),
+        }
+    }
 }
 
 /// Name.
+///
+/// TODO implement custom serialization/deserialization.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Name {
     pub first: Option<String>,
@@ -93,7 +226,7 @@ pub struct Resource {
     /// website, this is the last time the website contents were
     /// updated (if you don't know this information, use the archival
     /// date).
-    pub date: Date,
+    pub datetime: Option<DateTime>,
     pub edition: Option<i32>,
     pub version: Option<String>,
     pub publisher: Option<String>,
@@ -117,7 +250,7 @@ impl Resource {
     pub fn fuzzy_match(&self, query: &str) -> bool {
         self.fuzzy_match_field("title", query)
             || self.fuzzy_match_field("authors", query)
-            || self.fuzzy_match_field("date", query)
+            || self.fuzzy_match_field("datetime", query)
             || self.fuzzy_match_field("edition", query)
             || self.fuzzy_match_field("version", query)
             || self.fuzzy_match_field("publisher", query)
@@ -130,6 +263,9 @@ impl Resource {
             || self.fuzzy_match_field("historical_checksums", query)
     }
 
+    // TODO remove unicode information to make fuzzy searching
+    // easier. That is something like ä should be searched as though
+    // it were a.
     pub fn fuzzy_match_field(&self, field: &str, query: &str) -> bool {
         let matcher = SkimMatcherV2::default();
 
@@ -145,17 +281,29 @@ impl Resource {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
             }),
-            "date" => {
-                (match self.date.year {
-                    Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                    None => false,
-                }) || (match self.date.month {
-                    Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                    None => false,
-                }) || (match self.date.day {
-                    Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                    None => false,
-                })
+            "datetime" => match &self.datetime {
+                Some(d) => {
+                    (match d.year {
+                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                        None => false,
+                    }) || (match d.month {
+                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                        None => false,
+                    }) || (match d.day {
+                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                        None => false,
+                    }) || (match d.hour {
+                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                        None => false,
+                    }) || (match d.minute {
+                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                        None => false,
+                    }) || (match d.second {
+                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
+                        None => false,
+                    })
+                }
+                None => false,
             }
             "edition" => match self.edition {
                 Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),

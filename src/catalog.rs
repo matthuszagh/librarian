@@ -1,5 +1,5 @@
 use crate::bibtex::BibtexType;
-use crate::resource::{Date, DocumentType, Name, Resource};
+use crate::resource::{DocumentType, Name, Resource};
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -84,11 +84,7 @@ impl Catalog {
                                 middle: None,
                                 last: None,
                             }),
-                            date: Date {
-                                year: None,
-                                month: None,
-                                day: None,
-                            },
+                            datetime: None,
                             edition: None,
                             version: None,
                             publisher: None,
