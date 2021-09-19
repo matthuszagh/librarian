@@ -350,6 +350,8 @@ pub struct Resource {
     pub title: String,
     /// All resource authors.
     pub authors: Vec<Name>,
+    /// All resource editors.
+    pub editors: Vec<Name>,
     /// A date and time that is meant to represent the last time the
     /// resource's content changed. For a publication, such as a book
     /// or scientific article, this is the date of publication. For a
@@ -362,13 +364,26 @@ pub struct Resource {
     /// take any valid string.
     pub version: Option<String>,
     pub publisher: Option<String>,
+    /// Organization or institution involved in creation of the
+    /// resource. If the resource was a thesis, this should be the
+    /// school.
     pub organization: Option<String>,
+    /// Journal or magazine in which the resource was published.
+    pub journal: Option<String>,
+    /// Volume of a journal or multi-volume book or other resource.
+    pub volume: Option<String>,
+    /// The issue number of a journal, magazine, application note,
+    /// etc. This is a string because issue numbers are not always
+    /// numbers. For example, they often contain character suffixes as
+    /// in "57A".
+    pub issue_number: Option<String>,
     pub tags: Vec<String>,
     /// Document type (when applicable). This field is also used to
     /// associate a resource with a file extension.
     pub document_type: Option<String>,
     pub content_type: Option<String>,
-    /// URL.
+    /// Upstream URL where the resource is maintained or where it was
+    /// retreived.
     pub url: Option<Url>,
     /// Current SHA-1 checksum.
     pub checksum: String,
@@ -382,10 +397,14 @@ impl Resource {
     pub fn fuzzy_match(&self, query: &str) -> bool {
         self.fuzzy_match_field("title", query)
             || self.fuzzy_match_field("authors", query)
+            || self.fuzzy_match_field("editors", query)
             || self.fuzzy_match_field("datetime", query)
             || self.fuzzy_match_field("version", query)
             || self.fuzzy_match_field("publisher", query)
             || self.fuzzy_match_field("organization", query)
+            || self.fuzzy_match_field("journal", query)
+            || self.fuzzy_match_field("volume", query)
+            || self.fuzzy_match_field("issue_number", query)
             || self.fuzzy_match_field("tags", query)
             || self.fuzzy_match_field("document_type", query)
             || self.fuzzy_match_field("content_type", query)
@@ -403,6 +422,16 @@ impl Resource {
         return match field {
             "title" => matcher.fuzzy_match(&self.title, query).is_some(),
             "authors" => self.authors.iter().any(|a| match &a.first {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            } || match &a.middle {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            } || match &a.last {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            }),
+            "editors" => self.editors.iter().any(|a| match &a.first {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
             } || match &a.middle {
@@ -445,6 +474,18 @@ impl Resource {
                 None => false,
             },
             "organization" => match &self.organization {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "journal" => match &self.journal {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "volume" => match &self.volume {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "issue_number" => match &self.issue_number {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
             },
