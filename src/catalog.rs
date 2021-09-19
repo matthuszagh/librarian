@@ -81,7 +81,6 @@ impl Catalog {
                             title: file_name,
                             authors: std::vec!(),
                             datetime: None,
-                            edition: None,
                             version: None,
                             publisher: None,
                             organization: None,

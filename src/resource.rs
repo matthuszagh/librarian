@@ -357,7 +357,9 @@ pub struct Resource {
     /// updated (if you don't know this information, use the archival
     /// date).
     pub datetime: Option<DateTime>,
-    pub edition: Option<i32>,
+    /// Version or edition. While many editions are simple integers
+    /// (e.g., first or second edition), many others are, so this can
+    /// take any valid string.
     pub version: Option<String>,
     pub publisher: Option<String>,
     pub organization: Option<String>,
@@ -381,7 +383,6 @@ impl Resource {
         self.fuzzy_match_field("title", query)
             || self.fuzzy_match_field("authors", query)
             || self.fuzzy_match_field("datetime", query)
-            || self.fuzzy_match_field("edition", query)
             || self.fuzzy_match_field("version", query)
             || self.fuzzy_match_field("publisher", query)
             || self.fuzzy_match_field("organization", query)
@@ -435,10 +436,6 @@ impl Resource {
                 }
                 None => false,
             }
-            "edition" => match self.edition {
-                Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                None => false,
-            },
             "version" => match &self.version {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
