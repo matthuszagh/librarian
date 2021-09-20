@@ -422,7 +422,7 @@ impl Resource {
     // easier. That is something like ä should be searched as though
     // it were a.
     pub fn fuzzy_match_field(&self, field: &str, query: &str) -> bool {
-        let matcher = SkimMatcherV2::default();
+        let matcher = SkimMatcherV2::default().ignore_case();
 
         return match field {
             "title" => matcher.fuzzy_match(&self.title, query).is_some(),
