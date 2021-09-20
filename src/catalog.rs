@@ -88,6 +88,7 @@ impl Catalog {
                             journal: None,
                             volume: None,
                             issue_number: None,
+                            doi: None,
                             tags: std::vec!(),
                             document_type: None,
                             content_type: None,

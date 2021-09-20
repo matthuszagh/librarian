@@ -377,6 +377,10 @@ pub struct Resource {
     /// numbers. For example, they often contain character suffixes as
     /// in "57A".
     pub issue_number: Option<String>,
+    /// TODO create a DOI struct with custom
+    /// serialization/deserialization.
+    /// Digital object identifier (DOI).
+    pub doi: Option<String>,
     pub tags: Vec<String>,
     /// Document type (when applicable). This field is also used to
     /// associate a resource with a file extension.
@@ -405,6 +409,7 @@ impl Resource {
             || self.fuzzy_match_field("journal", query)
             || self.fuzzy_match_field("volume", query)
             || self.fuzzy_match_field("issue_number", query)
+            || self.fuzzy_match_field("doi", query)
             || self.fuzzy_match_field("tags", query)
             || self.fuzzy_match_field("document_type", query)
             || self.fuzzy_match_field("content_type", query)
@@ -486,6 +491,10 @@ impl Resource {
                 None => false,
             },
             "issue_number" => match &self.issue_number {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
+            "doi" => match &self.doi {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
             },
