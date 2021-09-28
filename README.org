@@ -233,6 +233,142 @@ Some of the resource field are required, but most are optional. Keep in mind tha
 
 There are very good existing tools for searching file names within a hierarchy. ~librarian~ will not duplicate this functionality. However, it will provide a rich syntax for querying resources within the "resources" directory, which are otherwise very inconveniently named for normal searching strategies. The syntax for this is not yet decided, but it will include regex (within limitation) and other convenient searches (e.g., return matches for resources whose metainformation contains all of the words in a search query).
 
+* Catalog
+** Resources
+*** Data Fields
+An important consideration when designing librarian was which metadata should be stored for each resource. Unfortunately, several of librarian's features and implementation details preclude leaving this decision up to the user. The difficulty with defining these fields myself is that I don't want to place artificial limits on the use cases for this tool. In particular, it would have been easy to have this tool accommodate my own needs and to inadvertently neglect those of others.
+
+My solution to this problem is to use the data fields specified by BibLaTeX. BibLaTeX (and its predecessor BibTeX) have existed for a long time and have experienced extensive use. It is therefore reasonable to assume that it accommodates most use cases. Modelling the data fields off BibLaTeX has the additional benefit that it makes exporting a BibLaTeX file trivial. And, since it is anticipated that there is some overlap in the user base of these two tools, using this tool does not require learning a new set of data fields.
+
+I intentionally stated that librarian's data fields are based off those of BibLaTeX, not that they are identical. This is because librarian omits some of BibLaTeX's fields and makes small changes in the naming of others. The essential reason for this is that these tools serve different purposes: librarian is a resource management tool, whereas BibLaTeX is a tool for generating a bibliography from a collection of resources. For example, BibLaTeX has some fields that are related to bibliographic styling and are therefore not applicable to librarian. One might argue that it could be useful to store these fields anyway to support BibLaTeX export. However, I expect that the value of these fields could change between different instances of a bibliography and therefore it is not useful and even somewhat counterproductive to store these values in a central catalog.
+
+It is also important to note that some data fields have slightly different meanings when used in librarian than the meanings they are assigned in BibLaTeX. This, again, stems from the fact that librarian is designed for resource management, not bibliographic generation. One example of this is the "pages" field. In BibLaTeX this defines the pages that are relevant to the citation, wherease in librarian it signifies the pages contained in the resource. This might occur, for example, if a scan of a textbook only contains a subset of the textbook's entire content.
+
+The following table documents all BibLaTeX data fields and specifies whether they are included in librarian, omitted, or modified. The justification column states why the resource was omitted or what it was modified to. A justification provided for an included field describes a field that carries a slightly different meaning in librarian than it does in BibLaTeX.
+
+|                   | (i)included/ |                                                                               |
+|                   |  (o)mitted/  |                                                                               |
+|       field       |  (m)odified  | justification                                                                 |
+|        <c>        |     <c>      | <l>                                                                           |
+|-------------------+--------------+-------------------------------------------------------------------------------|
+|     abstract      |      o       | This is not used by bibliographic backends and I don't see the need for it,   |
+|                   |              | though it's not thematically inconsistent with the ideas of librarian. I may  |
+|                   |              | add support for it in the future if there is interest.                        |
+|     addendum      |      o       | Related to bibliographic styling.                                             |
+|     afterword     |      i       |                                                                               |
+|    annotation     |      o       | Related to bibliographic styling.                                             |
+|     annotator     |      i       |                                                                               |
+|      author       |      i       |                                                                               |
+|    authortype     |      o       | Unused by standard bibliographic backends.                                    |
+|    bookauthor     |      i       |                                                                               |
+|  bookpagination   |      i       |                                                                               |
+|   booksubtitle    |      i       |                                                                               |
+|     booktitle     |      i       |                                                                               |
+|  booktitleaddon   |      o       | Title addons appear to be more about bibliographic style than about content   |
+|                   |              | distinctions. Therefore, all addon fields are omitted.                        |
+|      chapter      |      i       | If the stored resource is only one chapter from a larger work, this specifies |
+|                   |              | the stored chapter. This differs from the meaning given in BibLaTeX where it  |
+|                   |              | signifies the cited chapter. Nonetheless, it will be passed to BibLaTeX.      |
+|    commentator    |      i       |                                                                               |
+|       date        |      i       |                                                                               |
+|        doi        |      i       |                                                                               |
+|      edition      |      i       |                                                                               |
+|      editor       |      i       |                                                                               |
+|      editora      |      i       |                                                                               |
+|      editorb      |      i       |                                                                               |
+|      editorc      |      i       |                                                                               |
+|    editortype     |      i       |                                                                               |
+|    editoratype    |      i       |                                                                               |
+|    editorbtype    |      i       |                                                                               |
+|    editorctype    |      i       |                                                                               |
+|        eid        |      i       |                                                                               |
+|   entrysubtype    |      o       | This field is auto-populated from the "content_type".                         |
+|      eprint       |      i       |                                                                               |
+|    eprintclass    |      i       |                                                                               |
+|    eprinttype     |      i       |                                                                               |
+|     eventdate     |      i       |                                                                               |
+|    eventtitle     |      i       |                                                                               |
+|  eventtitleaddon  |      o       | See justification for "booktitleaddon".                                       |
+|       file        |      o       | This automatically populated by librarian.                                    |
+|      forward      |      i       |                                                                               |
+|      holder       |      i       |                                                                               |
+|   howpublished    |      i       |                                                                               |
+|    indextitle     |      o       | Related to bibliographic styling.                                             |
+|    institution    |      o       | I don't understand the difference between organization and institution.       |
+|                   |              | Additionally, there are no BibLaTeX entries that use both. So, librarian only |
+|                   |              | supports organization and in the biblatex export institution and organization |
+|                   |              | are both populated with the value from organization.                          |
+|   introduction    |      i       |                                                                               |
+|       isan        |      i       |                                                                               |
+|       isbn        |      i       |                                                                               |
+|       ismn        |      i       |                                                                               |
+|       isrn        |      i       |                                                                               |
+|       issn        |      i       |                                                                               |
+|       issue       |      i       |                                                                               |
+|   issuesubtitle   |      i       |                                                                               |
+|    issuetitle     |      i       |                                                                               |
+|  issuetitleaddon  |      o       | See justification for "booktitleaddon".                                       |
+|       iswc        |      i       |                                                                               |
+|  journalsubtitle  |      i       |                                                                               |
+|   journaltitle    |      i       |                                                                               |
+| journaltitleaddon |      o       | See justification for "booktitleaddon".                                       |
+|       label       |      o       | Related to bibliographic styling.                                             |
+|     language      |      i       |                                                                               |
+|      library      |      o       | It doesn't seem like this field relates to the resource itself, but rather    |
+|                   |              | how/where the resource was acquired.                                          |
+|     location      |      i       |                                                                               |
+|   mainsubtitle    |      i       |                                                                               |
+|     maintitle     |      i       |                                                                               |
+|  maintitleaddon   |      o       | See justification for "booktitleaddon".                                       |
+|       month       |      o       | This information should be recorded in "date".                                |
+|     nameaddon     |      o       | See justification for "booktitleaddon".                                       |
+|       note        |      i       | This is included because it may be useful to store additional information     |
+|                   |              | about the resource.                                                           |
+|      number       |      i       |                                                                               |
+|   organization    |      i       |                                                                               |
+|     origdate      |      i       |                                                                               |
+|   origlanguage    |      i       |                                                                               |
+|   origlocation    |      i       |                                                                               |
+|   origpublisher   |      i       |                                                                               |
+|     origtitle     |      i       |                                                                               |
+|       pages       |      i       | Like chapter, this means the pages of the resource, not simply those cited.   |
+|                   |              | Also like chapter, it will be passed to BibLaTeX.                             |
+|     pagetotal     |      i       |                                                                               |
+|    pagination     |      i       |                                                                               |
+|       part        |      i       |                                                                               |
+|     publisher     |      i       |                                                                               |
+|     pubstate      |      i       |                                                                               |
+|   reprinttitle    |      o       | I don't understand when you'd want to use this over title. Additionally, it's |
+|                   |              | ignored by the standard bibliographic styles.                                 |
+|      series       |      i       |                                                                               |
+|    shortauthor    |      o       | Related to bibliographic styling.                                             |
+|    shorteditor    |      o       | Related to bibliographic styling.                                             |
+|     shorthand     |      o       | Related to bibliographic styling.                                             |
+|  shorthandintro   |      o       | Related to bibliographic styling.                                             |
+|   shortjournal    |      o       | Related to bibliographic styling.                                             |
+|    shortseries    |      o       | Related to bibliographic styling.                                             |
+|    shorttitle     |      o       | Related to bibliographic styling.                                             |
+|     subtitle      |      i       |                                                                               |
+|       title       |      i       |                                                                               |
+|    titleaddon     |      o       | See justification for "booktitleaddon".                                       |
+|    translator     |      i       |                                                                               |
+|       type        |      o       | Accommodated by "content_type".                                               |
+|        url        |      i       |                                                                               |
+|      urldate      |      i       |                                                                               |
+|       venue       |      i       |                                                                               |
+|      version      |      i       |                                                                               |
+|      volume       |      i       |                                                                               |
+|      volumes      |      i       |                                                                               |
+|       year        |      o       | This information should be recorded in "date".                                |
+
+None of the special fields are supported.
+
+* FAQ
+** If resource data fields are inherited from BibLaTeX, why use JSON instead of BibLaTeX for the catalog?
+The BibLaTeX format does not support features provided by librarian. For example, I cannot think of a way to provide the tagging and hierarchical instantiation features provided by librarian. The separate format also gives us the liberty to add new features in the future that the BibLaTeX format would not support.
+
+The last, and least compelling, reason is that there are existing robust and fast solutions for serializing/deserializing JSON, whereas I don't know of similar solutions in Rust for BibTeX/BibLaTeX. But, if it weren't for the previous explanations I probably would have created one for the Serde framework.
+
 * Cataloging
 Cataloging refers to the process of:
 
@@ -255,7 +391,36 @@ The primary motivation for me not to use a separate cache file is that I hate it
 
 Another question that might come up is why I chose to store this cache file in the library directory rather than under ~/.config/librarian. One of my goals for librarian is that you should be free to move around your libraries without affecting the function of the tool. It was not immediately apparent to me how to accomplish this without the cache being in the library directory. Another motivating factor is that the cache is human-readable (it's also JSON) and it might be useful to version-control it. Maintaining it within the library directory makes this possible.
 
+* Configuration File
+** TODO authors
+I think probably the best syntax for this is:
+
+- "last"
+- "first last"
+- "first middle last"
+
+I think it's probably ok to not permit only specifying the first name, etc.
+
+** TODO date
+Use an ISO 8601 date (probably a subset of it). This should be easy to provide custom serialize/deserialize implementations for.
+
+- "YYYY" (e.g., "1988") means the year.
+- "YYYY-MM" means the year and month (month must use 2 digits, e.g., 02).
+- "YYYY-MM-DD" means year, month, and day.
+
+How should time syntax work? Check the ISO 8601 syntax. But, probably:
+
+- "YYYY-MM-DD HH" (hour is 0 to 23, obviously)
+- "YYYY-MM-DD HH:MM"
+- "YYYY-MM-DD HH:MM:SS"
+- "YYYY-MM-DD HH:MM:SS mS:uS:nS:pS" (I don't know about this, and how much should I support?)
+
+** MIME type
+MIME type should be "type/subtype".
+
 * Searching
+TODO I probably can't use the quotes as they're used below (e.g., r"something" probably won't work) since this won't work with argument parsing and bash input. Maybe use single quotes? Or, choose another syntax. Can also use clap raw, but this would require search goes after ~--~.
+
 Librarian provides a rich query syntax for retrieving resource metadata. A simple search has the syntax
 
 #+begin_src bash :eval no

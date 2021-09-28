@@ -2,10 +2,11 @@ use crate::bibtex::BibtexType;
 
 use fuzzy_matcher::skim::SkimMatcherV2;
 use fuzzy_matcher::FuzzyMatcher;
+use indexmap::IndexMap;
+use std::cmp::PartialOrd;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
-use std::cmp::PartialOrd;
 // use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -244,12 +245,12 @@ impl From<DateTime> for String {
                         Some(h) => match datetime.minute {
                             Some(min) => match datetime.second {
                                 Some(s) => format!(
-                                    "{:04}-{:02}-{:02} {:02}:{:02}:{:02}",
+                                    "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
                                     y, m, d, h, min, s
                                 ),
-                                None => format!("{:04}-{:02}-{:02} {:02}:{:02}", y, m, d, h, min),
+                                None => format!("{:04}-{:02}-{:02}T{:02}:{:02}", y, m, d, h, min),
                             },
-                            None => format!("{:04}-{:02}-{:02} {:02}", y, m, d, h),
+                            None => format!("{:04}-{:02}-{:02}T{:02}", y, m, d, h),
                         },
                         None => format!("{:04}-{:02}-{:02}", y, m, d),
                     },
@@ -355,16 +356,16 @@ pub struct Resource {
     /// Title.
     pub title: String,
     /// All resource authors.
-    pub authors: Option<Vec<Name>>,
+    pub author: Option<Vec<Name>>,
     /// All resource editors.
-    pub editors: Option<Vec<Name>>,
+    pub editor: Option<Vec<Name>>,
     /// A date and time that is meant to represent the last time the
     /// resource's content changed. For a publication, such as a book
     /// or scientific article, this is the date of publication. For a
     /// website, this is the last time the website contents were
     /// updated (if you don't know this information, use the archival
     /// date).
-    pub datetime: Option<DateTime>,
+    pub date: Option<DateTime>,
     /// Version or edition. While many editions are simple integers
     /// (e.g., first or second edition), many others are, so this can
     /// take any valid string.
@@ -406,9 +407,9 @@ pub struct Resource {
 impl Resource {
     pub fn fuzzy_match(&self, query: &str) -> bool {
         self.fuzzy_match_field("title", query)
-            || self.fuzzy_match_field("authors", query)
-            || self.fuzzy_match_field("editors", query)
-            || self.fuzzy_match_field("datetime", query)
+            || self.fuzzy_match_field("author", query)
+            || self.fuzzy_match_field("editor", query)
+            || self.fuzzy_match_field("date", query)
             || self.fuzzy_match_field("version", query)
             || self.fuzzy_match_field("publisher", query)
             || self.fuzzy_match_field("organization", query)
@@ -425,14 +426,13 @@ impl Resource {
     }
 
     // TODO remove unicode information to make fuzzy searching
-    // easier. That is something like ä should be searched as though
-    // it were a.
+    // easier. E.g., 'ä' should be searched as 'a'.
     pub fn fuzzy_match_field(&self, field: &str, query: &str) -> bool {
         let matcher = SkimMatcherV2::default().ignore_case();
 
         return match field {
             "title" => matcher.fuzzy_match(&self.title, query).is_some(),
-            "authors" => match &self.authors {
+            "author" => match &self.author {
                 Some(oa) => {
                     oa.iter().any(|a| match &a.first {
                         Some(f) => matcher.fuzzy_match(&f, query).is_some(),
@@ -447,7 +447,7 @@ impl Resource {
                 },
                 None => false,
              },
-            "editors" => match &self.authors {
+            "editor" => match &self.author {
                 Some(oe) => {
                     oe.iter().any(|a| match &a.first {
                         Some(f) => matcher.fuzzy_match(&f, query).is_some(),
@@ -462,7 +462,7 @@ impl Resource {
                 },
                 None => false,
              },
-            "datetime" => match &self.datetime {
+            "date" => match &self.date {
                 Some(d) => {
                     (match d.year {
                         Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
@@ -539,5 +539,24 @@ impl Resource {
                 .any(|c| matcher.fuzzy_match(&c, query).is_some()),
             &_ => panic!("invalid field"),
         };
+    }
+
+    /// The BibTeX type associated with the current resource.
+    ///
+    /// # Arguments
+    ///
+    /// * `content_types` - A collection of content types as defined
+    /// in the catalog. The map key is a string identifying the
+    /// content type and the map value is the associated BibTeX type.
+    ///
+    /// # Return
+    ///
+    /// Returns `None` if the content type for resource is not one of
+    /// the content types defined in the catalog.
+    pub fn bibtex_type(&self, content_types: &IndexMap<String, BibtexType>) -> Option<BibtexType> {
+        match &self.content_type {
+            Some(c) => Some(content_types.get(c).unwrap().clone()),
+            None => None,
+        }
     }
 }

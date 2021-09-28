@@ -5,12 +5,12 @@ use crate::resource::{DocumentType, Resource};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use sha1::Sha1;
+use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fs::{read, OpenOptions};
 use std::io::{prelude::*, Read, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::SystemTime;
-use std::cmp::Ordering;
 use walkdir::WalkDir;
 
 /// Library catalog contained within the catalog.json file.
@@ -26,8 +26,8 @@ pub struct Catalog {
 impl Catalog {
     /// Update the catalog to reflect the current resources.
     ///
-    /// This function performs several tasks:
-    /// 1. It adds new resources to the catalog.
+    /// This function performs several tasks. It:
+    /// 1. Adds new resources to the catalog.
     /// 2. Updates the checksums of files that have been modified.
     /// 3. Deletes catalog entries no longer backed by a resource (orphans).
     ///
@@ -81,9 +81,9 @@ impl Catalog {
                         checksum.clone(),
                         Resource {
                             title: file_name,
-                            authors: None,
-                            editors: None,
-                            datetime: None,
+                            author: None,
+                            editor: None,
+                            date: None,
                             version: None,
                             publisher: None,
                             organization: None,
@@ -116,7 +116,7 @@ impl Catalog {
         self.resources.sort_by(|a, b| {
             let title_cmp = a.title.partial_cmp(&b.title).unwrap();
             if title_cmp == Ordering::Equal {
-                a.datetime.partial_cmp(&b.datetime).unwrap()
+                a.date.partial_cmp(&b.date).unwrap()
             } else {
                 title_cmp
             }

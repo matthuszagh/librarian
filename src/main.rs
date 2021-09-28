@@ -1,11 +1,11 @@
 mod bibtex;
+mod cache;
 mod catalog;
 mod instance;
 mod resource;
 mod search;
-mod cache;
 
-use crate::bibtex::librarian_bibliography;
+use crate::bibtex::librarian_bibtex;
 use crate::catalog::{librarian_catalog, Catalog};
 use crate::instance::librarian_instantiate;
 use crate::search::librarian_search;
@@ -14,7 +14,6 @@ use clap::{app_from_crate, App, Arg};
 use std::env;
 use std::fs::OpenOptions;
 use std::path::PathBuf;
-use std::string::String;
 
 fn main() {
     let args = parse_app_args();
@@ -56,15 +55,11 @@ fn main() {
                 .value_of("query")
                 .expect("must provide a search query"),
         );
-    } else if args.is_present("bibliography") {
-        librarian_bibliography(
+    } else if args.is_present("bibtex") {
+        librarian_bibtex(
             &catalog,
-            &mut String::from(
-                args.subcommand_matches("bibliography")
-                    .unwrap()
-                    .value_of("format")
-                    .expect("must provide a search query"),
-            ),
+            &resources_path,
+            args.subcommand_matches("bibtex").unwrap().value_of("file"),
         );
     } else {
         panic!("Subcommand required.");
@@ -95,7 +90,7 @@ fn parse_app_args() -> clap::ArgMatches {
                 .takes_value(true)
                 .short('c')
                 .long("catalog")
-                .default_value("catalog.json")
+                .default_value("catalog.json"),
         )
         .arg(
             Arg::new("resources")
@@ -103,7 +98,7 @@ fn parse_app_args() -> clap::ArgMatches {
                 .takes_value(true)
                 .short('r')
                 .long("resources")
-                .default_value("resources")
+                .default_value("resources"),
         )
         .subcommand(
             App::new("catalog")
@@ -115,37 +110,28 @@ fn parse_app_args() -> clap::ArgMatches {
                         .short('c')
                         .long("cache")
                         .possible_values(&["true", "false"])
-                        .default_value("true")
-                    )
+                        .default_value("true"),
+                ),
         )
+        .subcommand(App::new("catalog").about("catalogs all new original resources"))
         .subcommand(
-            App::new("instantiate")
-                .about("instantiates one or more instances from the catalog")
-        )
-        .subcommand(
-            App::new("validate")
-                .about("validates the catalog")
+            App::new("instantiate").about("instantiates one or more instances from the catalog"),
         )
         .subcommand(
             App::new("search")
                 .about("retrieve a resource based on its metainformation")
-                .arg(
-                    Arg::new("query")
-                        .about("resource query")
-                        .takes_value(true)
-                )
+                .arg(Arg::new("query").about("resource query").takes_value(true)),
         )
         .subcommand(
-            App::new("bibliography")
-                .about("generate a bibliography")
-                .long_about("Generates a bibliography in a specified format and optionally restricted to a subset of catalog entries.")
+            App::new("bibtex")
+                .about("generate a BibTeX bibliography")
                 .arg(
-                    Arg::new("format")
-                        .about("bibliographic format")
-                        .takes_value(true)
-                        .default_value("bibtex")
-                        .possible_values(&["bibtex"])
-                )
+                    Arg::new("file")
+                        .about("file to write BibTeX data to")
+                        .long_about(
+                            "If this argument is omitted, BibTeX data will be written to stdout.",
+                        ),
+                ),
         )
         .get_matches()
 }
