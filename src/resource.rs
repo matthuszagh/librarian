@@ -7,6 +7,7 @@ use std::error::Error;
 use std::fmt;
 // use regex::Regex;
 use serde::{Deserialize, Serialize};
+use serde_with::skip_serializing_none;
 use url::Url;
 
 /// Library "tag".
@@ -344,14 +345,15 @@ impl From<Name> for String {
 /// Library "resource". This represents one unit of library content,
 /// which can either be a file (such as a document or video), or a
 /// directory (e.g., with the contents of a webpage).
+#[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Resource {
     /// Title.
     pub title: String,
     /// All resource authors.
-    pub authors: Vec<Name>,
+    pub authors: Option<Vec<Name>>,
     /// All resource editors.
-    pub editors: Vec<Name>,
+    pub editors: Option<Vec<Name>>,
     /// A date and time that is meant to represent the last time the
     /// resource's content changed. For a publication, such as a book
     /// or scientific article, this is the date of publication. For a
@@ -381,7 +383,7 @@ pub struct Resource {
     /// serialization/deserialization.
     /// Digital object identifier (DOI).
     pub doi: Option<String>,
-    pub tags: Vec<String>,
+    pub tags: Option<Vec<String>>,
     /// Document type (when applicable). This field is also used to
     /// associate a resource with a file extension.
     pub document_type: Option<String>,
@@ -426,26 +428,36 @@ impl Resource {
 
         return match field {
             "title" => matcher.fuzzy_match(&self.title, query).is_some(),
-            "authors" => self.authors.iter().any(|a| match &a.first {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+            "authors" => match &self.authors {
+                Some(oa) => {
+                    oa.iter().any(|a| match &a.first {
+                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                        None => false,
+                    } || match &a.middle {
+                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                        None => false,
+                    } || match &a.last {
+                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                        None => false,
+                    })
+                },
                 None => false,
-            } || match &a.middle {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+             },
+            "editors" => match &self.authors {
+                Some(oe) => {
+                    oe.iter().any(|a| match &a.first {
+                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                        None => false,
+                    } || match &a.middle {
+                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                        None => false,
+                    } || match &a.last {
+                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                        None => false,
+                    })
+                },
                 None => false,
-            } || match &a.last {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
-            }),
-            "editors" => self.editors.iter().any(|a| match &a.first {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
-            } || match &a.middle {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
-            } || match &a.last {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
-            }),
+             },
             "datetime" => match &self.datetime {
                 Some(d) => {
                     (match d.year {
@@ -498,10 +510,12 @@ impl Resource {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
             },
-            "tags" => self
-                .tags
-                .iter()
-                .any(|t| matcher.fuzzy_match(&t, query).is_some()),
+            "tags" => match &self.tags {
+                Some(ot) => ot
+                    .iter()
+                    .any(|t| matcher.fuzzy_match(&t, query).is_some()),
+                None => false,
+            },
             "document_type" => match &self.document_type {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,
