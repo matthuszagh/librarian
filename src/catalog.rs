@@ -10,6 +10,7 @@ use std::fs::{read, OpenOptions};
 use std::io::{prelude::*, Read, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::SystemTime;
+use std::cmp::Ordering;
 use walkdir::WalkDir;
 
 /// Library catalog contained within the catalog.json file.
@@ -110,9 +111,16 @@ impl Catalog {
 
         self.resources = catalog_resources.values().cloned().collect();
 
-        // sort resources by title in alphanumeric order
-        self.resources
-            .sort_by(|a, b| a.title.partial_cmp(&b.title).unwrap());
+        // Sort resources by title in alphanumeric order and by
+        // datetime, when the title results in a tie.
+        self.resources.sort_by(|a, b| {
+            let title_cmp = a.title.partial_cmp(&b.title).unwrap();
+            if title_cmp == Ordering::Equal {
+                a.datetime.partial_cmp(&b.datetime).unwrap()
+            } else {
+                title_cmp
+            }
+        });
 
         self.content_types.sort_keys();
         self.document_types.sort_keys();

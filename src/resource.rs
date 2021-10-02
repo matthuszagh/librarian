@@ -5,6 +5,7 @@ use fuzzy_matcher::FuzzyMatcher;
 use std::convert::TryFrom;
 use std::error::Error;
 use std::fmt;
+use std::cmp::PartialOrd;
 // use regex::Regex;
 use serde::{Deserialize, Serialize};
 use serde_with::skip_serializing_none;
@@ -123,7 +124,10 @@ pub struct DocumentType {
 }
 
 /// DateTime.
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+///
+/// The order of members in this struct is important since it is used
+/// by `#[derive(PartialOrd)]`.
+#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq, PartialOrd)]
 #[serde(try_from = "&str", into = "String")]
 pub struct DateTime {
     pub year: Option<i32>,
