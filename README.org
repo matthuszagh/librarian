@@ -233,6 +233,28 @@ Some of the resource field are required, but most are optional. Keep in mind tha
 
 There are very good existing tools for searching file names within a hierarchy. ~librarian~ will not duplicate this functionality. However, it will provide a rich syntax for querying resources within the "resources" directory, which are otherwise very inconveniently named for normal searching strategies. The syntax for this is not yet decided, but it will include regex (within limitation) and other convenient searches (e.g., return matches for resources whose metainformation contains all of the words in a search query).
 
+* Cataloging
+Cataloging refers to the process of:
+
+1. adding new resources to the catalog,
+2. removing deleted resources from the catalog,
+3. updating the checksum of a resource when its content changes, and
+4. formatting the catalog.
+
+** cache file
+Librarian uses SHA1 checksums of each resource to identify the content of that resource and to determine when that content changes. Moreover, it conservatively uses every byte of content in the resource to compute the checksum rather than some subset of the content. The operation of reading all resource bytes and computing a checksum from it is quite compute-intensive and can result in long cataloging times, especially for large resource collections.
+
+To address these performance issues, librarian maintains a cache for each library that records the last time the resource's checksum was verified. It can use this information to only compute the checksum of resources that have been modified (as reported by the operating system) since the resource's checksum was last verified. This results in dramatic performance improvements for cataloging and is thus enabled by default. Moreover, while the shortcut is not foolproof, it should produce correct results under most circumstances. It is possible to ignore the cache while cataloging, and it may make sense to do this on occasion in order to ensure the continued validity of the cache. Also, while you can choose to ignore the cache, the cache timestamps will still be updated. Therefore, if a cache is somehow invalidated, cataloging while ignoring the cache will return the cache to a valid state.
+
+Finally, librarian always employs UTC-aware timestamps, so (assuming your computer time is properly synchronized to UTC time) the cache will not be invalidated by a change in location.
+
+*** why not include the verification time in the catalog itself?
+This was a bit of a debate for me, but ultimately I decided to maintain a separate cache rather than to include the information within the catalog file. I did this for two primary reasons. The first is that the catalog is intended to store metadata relevant to the end user. That is, the catalog is designed as much for the end user as for the librarian program that processes and modifies it. In my opinion, the last verification time of a checksum does not seem like user-relevant information. Additionally, I expect that some users will version-control their catalog. Recording this information has the potential to create a lot of "noise" in the version-control history.
+
+The primary motivation for me not to use a separate cache file is that I hate it when tools unnecessarily pollute your directories with files. Ultimately, a single cache file in the library directory seemed to me like a lower cost than the result of including the information in the catalog.
+
+Another question that might come up is why I chose to store this cache file in the library directory rather than under ~/.config/librarian. One of my goals for librarian is that you should be free to move around your libraries without affecting the function of the tool. It was not immediately apparent to me how to accomplish this without the cache being in the library directory. Another motivating factor is that the cache is human-readable (it's also JSON) and it might be useful to version-control it. Maintaining it within the library directory makes this possible.
+
 * Searching
 Librarian provides a rich query syntax for retrieving resource metadata. A simple search has the syntax
 
@@ -409,7 +431,9 @@ To accomplish this, we can qualify a tag. So, instead of giving file1 the tags [
 ** TODO make tag hierarchy instance-specific
 There should probably be a list of acceptable tags and then a tag hierarchy in each instance. It seems reasonable that someone might want different hierarchies for different instances.
 
-* Arguments
+* TODO Arguments
+This section is out of date. In any event, it should probably be removed in favor of topical sections. Argument/subcommand information can be gleaned from the command help feature.
+
 ** Subcommands
 *** register
 ~librarian register~ performs several tasks.
