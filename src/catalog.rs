@@ -343,6 +343,8 @@ pub fn librarian_catalog(
         cache.remove(o.0);
     });
 
+    cache.sort_by(|a_key, _, b_key, _| a_key.partial_cmp(&b_key).unwrap());
+
     // write new cache contents to file
     clear_file(&mut cache_file);
     serde_json::to_writer_pretty(&mut cache_file, &cache).unwrap();
