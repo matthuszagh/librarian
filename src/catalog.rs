@@ -324,9 +324,20 @@ pub fn librarian_catalog(
             let content_sha: String = match cache_invalid {
                 true => {
                     let checksum = sha1(&file);
+                    let mut cache_key = file_name;
+                    // If the cache does not contain an entry whose
+                    // key is the file name, then the entry
+                    // corresponds to a new resource and the index
+                    // should be set to the checksum, not the old file
+                    // name. This is necessary because the file is not
+                    // renamed to the initial checksum until we call
+                    // `catalog.update`.
+                    if !cache.contains_key(&cache_key) {
+                        cache_key = checksum.clone();
+                    }
                     // insert updates an existing key if it already exists
                     cache.insert(
-                        file_name,
+                        cache_key,
                         CacheFields {
                             last_verified: now,
                             checksum: checksum.clone(),
