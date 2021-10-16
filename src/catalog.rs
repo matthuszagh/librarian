@@ -89,7 +89,7 @@ impl Catalog {
                             organization: None,
                             journal: None,
                             volume: None,
-                            issue_number: None,
+                            number: None,
                             doi: None,
                             tags: None,
                             document_type: None,
