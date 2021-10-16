@@ -95,6 +95,7 @@ impl Resource {
                     .as_str(),
                 );
                 bibtex_entry.push_str(&bibtex_serialize_field("title", Some(self.title.clone())));
+                bibtex_entry.push_str(&bibtex_serialize_field("subtitle", self.subtitle.clone()));
                 bibtex_entry.push_str(&bibtex_serialize_names("author", self.author.clone()));
                 bibtex_entry.push_str(&bibtex_serialize_names("editor", self.editor.clone()));
                 bibtex_entry.push_str(&bibtex_serialize_field(

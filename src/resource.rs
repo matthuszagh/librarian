@@ -349,12 +349,14 @@ impl From<Name> for String {
 
 /// Library "resource". This represents one unit of library content,
 /// which can either be a file (such as a document or video), or a
-/// directory (e.g., with the contents of a webpage).
+/// directory (e.g., holding the contents of a webpage).
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct Resource {
     /// Title.
     pub title: String,
+    /// Subtitle.
+    pub subtitle: Option<String>,
     /// All resource authors.
     pub author: Option<Vec<Name>>,
     /// All resource editors.
@@ -366,6 +368,7 @@ pub struct Resource {
     /// updated (if you don't know this information, use the archival
     /// date).
     pub date: Option<DateTime>,
+    pub edition: Option<String>,
     /// Version or edition. While many editions are simple integers
     /// (e.g., first or second edition), many others are, so this can
     /// take any valid string.
@@ -405,11 +408,15 @@ pub struct Resource {
 }
 
 impl Resource {
+    // TODO I imagine there's a much more concise (and less
+    // repetitive) way of fuzzy-matching all fields.
     pub fn fuzzy_match(&self, query: &str) -> bool {
         self.fuzzy_match_field("title", query)
+            || self.fuzzy_match_field("subtitle", query)
             || self.fuzzy_match_field("author", query)
             || self.fuzzy_match_field("editor", query)
             || self.fuzzy_match_field("date", query)
+            || self.fuzzy_match_field("edition", query)
             || self.fuzzy_match_field("version", query)
             || self.fuzzy_match_field("publisher", query)
             || self.fuzzy_match_field("organization", query)
@@ -432,6 +439,10 @@ impl Resource {
 
         return match field {
             "title" => matcher.fuzzy_match(&self.title, query).is_some(),
+            "subtitle" => match &self.subtitle {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
             "author" => match &self.author {
                 Some(oa) => {
                     oa.iter().any(|a| match &a.first {
@@ -486,6 +497,10 @@ impl Resource {
                 }
                 None => false,
             }
+            "edition" => match &self.edition {
+                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
+                None => false,
+            },
             "version" => match &self.version {
                 Some(f) => matcher.fuzzy_match(&f, query).is_some(),
                 None => false,

@@ -81,9 +81,11 @@ impl Catalog {
                         checksum.clone(),
                         Resource {
                             title: file_name,
+                            subtitle: None,
                             author: None,
                             editor: None,
                             date: None,
+                            edition: None,
                             version: None,
                             publisher: None,
                             organization: None,
