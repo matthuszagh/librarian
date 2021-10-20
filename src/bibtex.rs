@@ -16,6 +16,7 @@ pub enum BibtexType {
     Manual,
     Miscellaneous,
     Online,
+    Software,
     TechReport,
 }
 
