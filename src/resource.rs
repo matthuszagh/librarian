@@ -410,148 +410,231 @@ pub struct Resource {
 impl Resource {
     // TODO I imagine there's a much more concise (and less
     // repetitive) way of fuzzy-matching all fields.
-    pub fn fuzzy_match(&self, query: &str) -> bool {
+    pub fn fuzzy_match(&self, query: &str) -> i64 {
         self.fuzzy_match_field("title", query)
-            || self.fuzzy_match_field("subtitle", query)
-            || self.fuzzy_match_field("author", query)
-            || self.fuzzy_match_field("editor", query)
-            || self.fuzzy_match_field("date", query)
-            || self.fuzzy_match_field("edition", query)
-            || self.fuzzy_match_field("version", query)
-            || self.fuzzy_match_field("publisher", query)
-            || self.fuzzy_match_field("organization", query)
-            || self.fuzzy_match_field("journal", query)
-            || self.fuzzy_match_field("volume", query)
-            || self.fuzzy_match_field("number", query)
-            || self.fuzzy_match_field("doi", query)
-            || self.fuzzy_match_field("tags", query)
-            || self.fuzzy_match_field("document_type", query)
-            || self.fuzzy_match_field("content_type", query)
-            || self.fuzzy_match_field("url", query)
-            || self.fuzzy_match_field("checksum", query)
-            || self.fuzzy_match_field("historical_checksums", query)
+            + self.fuzzy_match_field("subtitle", query)
+            + self.fuzzy_match_field("author", query)
+            + self.fuzzy_match_field("editor", query)
+            + self.fuzzy_match_field("date", query)
+            + self.fuzzy_match_field("edition", query)
+            + self.fuzzy_match_field("version", query)
+            + self.fuzzy_match_field("publisher", query)
+            + self.fuzzy_match_field("organization", query)
+            + self.fuzzy_match_field("journal", query)
+            + self.fuzzy_match_field("volume", query)
+            + self.fuzzy_match_field("number", query)
+            + self.fuzzy_match_field("doi", query)
+            + self.fuzzy_match_field("tags", query)
+            + self.fuzzy_match_field("document_type", query)
+            + self.fuzzy_match_field("content_type", query)
+            + self.fuzzy_match_field("url", query)
+            + self.fuzzy_match_field("checksum", query)
+            + self.fuzzy_match_field("historical_checksums", query)
     }
 
     // TODO remove unicode information to make fuzzy searching
     // easier. E.g., 'ä' should be searched as 'a'.
-    pub fn fuzzy_match_field(&self, field: &str, query: &str) -> bool {
+    pub fn fuzzy_match_field(&self, field: &str, query: &str) -> i64 {
         let matcher = SkimMatcherV2::default().ignore_case();
 
         return match field {
-            "title" => matcher.fuzzy_match(&self.title, query).is_some(),
+            "title" => match matcher.fuzzy_match(&self.title, query) {
+                Some(s) => s,
+                None => 0,
+            },
             "subtitle" => match &self.subtitle {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "author" => match &self.author {
-                Some(oa) => {
-                    oa.iter().any(|a| match &a.first {
-                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                        None => false,
-                    } || match &a.middle {
-                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                        None => false,
-                    } || match &a.last {
-                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                        None => false,
-                    })
-                },
-                None => false,
-             },
+                Some(oa) => oa.iter().fold(0, |acc, a| {
+                    acc + match &a.first {
+                        Some(f) => match matcher.fuzzy_match(&f, query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    } + match &a.middle {
+                        Some(f) => match matcher.fuzzy_match(&f, query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    } + match &a.last {
+                        Some(f) => match matcher.fuzzy_match(&f, query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }
+                }),
+                None => 0,
+            },
             "editor" => match &self.author {
-                Some(oe) => {
-                    oe.iter().any(|a| match &a.first {
-                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                        None => false,
-                    } || match &a.middle {
-                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                        None => false,
-                    } || match &a.last {
-                        Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                        None => false,
-                    })
-                },
-                None => false,
-             },
+                Some(oe) => oe.iter().fold(0, |acc, a| {
+                    acc + match &a.first {
+                        Some(f) => match matcher.fuzzy_match(&f, query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    } + match &a.middle {
+                        Some(f) => match matcher.fuzzy_match(&f, query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    } + match &a.last {
+                        Some(f) => match matcher.fuzzy_match(&f, query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }
+                }),
+                None => 0,
+            },
             "date" => match &self.date {
                 Some(d) => {
                     (match d.year {
-                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                        None => false,
-                    }) || (match d.month {
-                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                        None => false,
-                    }) || (match d.day {
-                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                        None => false,
-                    }) || (match d.hour {
-                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                        None => false,
-                    }) || (match d.minute {
-                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                        None => false,
-                    }) || (match d.second {
-                        Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                        None => false,
+                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }) + (match d.month {
+                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }) + (match d.day {
+                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }) + (match d.hour {
+                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }) + (match d.minute {
+                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
+                    }) + (match d.second {
+                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                            Some(s) => s,
+                            None => 0,
+                        },
+                        None => 0,
                     })
                 }
-                None => false,
-            }
+                None => 0,
+            },
             "edition" => match &self.edition {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "version" => match &self.version {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "publisher" => match &self.publisher {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "organization" => match &self.organization {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "journal" => match &self.journal {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "volume" => match &self.volume {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "number" => match &self.number {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "doi" => match &self.doi {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "tags" => match &self.tags {
-                Some(ot) => ot
-                    .iter()
-                    .any(|t| matcher.fuzzy_match(&t, query).is_some()),
-                None => false,
+                Some(ot) => ot.iter().fold(0, |acc, x| {
+                    acc + match matcher.fuzzy_match(&x, query) {
+                        Some(s) => s,
+                        None => 0,
+                    }
+                }),
+                None => 0,
             },
             "document_type" => match &self.document_type {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "content_type" => match &self.content_type {
-                Some(f) => matcher.fuzzy_match(&f, query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f, query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
             "url" => match &self.url {
-                Some(f) => matcher.fuzzy_match(&f.to_string(), query).is_some(),
-                None => false,
+                Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
+                    Some(s) => s,
+                    None => 0,
+                },
+                None => 0,
             },
-            "checksum" => matcher.fuzzy_match(&self.checksum, query).is_some(),
-            "historical_checksums" => self
-                .historical_checksums
-                .iter()
-                .any(|c| matcher.fuzzy_match(&c, query).is_some()),
+            "checksum" => match matcher.fuzzy_match(&self.checksum, query) {
+                Some(s) => s,
+                None => 0,
+            },
+            "historical_checksums" => self.historical_checksums.iter().fold(0, |acc, c| {
+                acc + match matcher.fuzzy_match(&c, query) {
+                    Some(s) => s,
+                    None => 0,
+                }
+            }),
             &_ => panic!("invalid field"),
         };
     }
