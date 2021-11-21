@@ -21,8 +21,8 @@ struct Tag {}
 /// Resource type.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 struct ResourceType {
-    /// Resource name. This must match the value of "content_type"
-    /// for each resource.
+    /// Resource name. This must match the value of "content" for each
+    /// resource.
     name: String,
     /// BibTeX type associated with this resource type. This is used
     /// when exporting the resource to a BibTeX entry.
@@ -394,8 +394,8 @@ pub struct Resource {
     pub tags: Option<Vec<String>>,
     /// Document type (when applicable). This field is also used to
     /// associate a resource with a file extension.
-    pub document_type: Option<String>,
-    pub content_type: Option<String>,
+    pub document: Option<String>,
+    pub content: Option<String>,
     /// Upstream URL where the resource is maintained or where it was
     /// retreived.
     pub url: Option<Url>,
@@ -425,8 +425,8 @@ impl Resource {
             + self.fuzzy_match_field("number", query)
             + self.fuzzy_match_field("doi", query)
             + self.fuzzy_match_field("tags", query)
-            + self.fuzzy_match_field("document_type", query)
-            + self.fuzzy_match_field("content_type", query)
+            + self.fuzzy_match_field("document", query)
+            + self.fuzzy_match_field("content", query)
             + self.fuzzy_match_field("url", query)
             + self.fuzzy_match_field("checksum", query)
             + self.fuzzy_match_field("historical_checksums", query)
@@ -604,14 +604,14 @@ impl Resource {
                 }),
                 None => 0,
             },
-            "document_type" => match &self.document_type {
+            "document" => match &self.document {
                 Some(f) => match matcher.fuzzy_match(&f, query) {
                     Some(s) => s,
                     None => 0,
                 },
                 None => 0,
             },
-            "content_type" => match &self.content_type {
+            "content" => match &self.content {
                 Some(f) => match matcher.fuzzy_match(&f, query) {
                     Some(s) => s,
                     None => 0,
@@ -643,7 +643,7 @@ impl Resource {
     ///
     /// # Arguments
     ///
-    /// * `content_types` - A collection of content types as defined
+    /// * `contents` - A collection of content types as defined
     /// in the catalog. The map key is a string identifying the
     /// content type and the map value is the associated BibTeX type.
     ///
@@ -652,7 +652,7 @@ impl Resource {
     /// Returns `None` if the content type for resource is not one of
     /// the content types defined in the catalog.
     pub fn bibtex_type(&self, content_types: &IndexMap<String, BibtexType>) -> Option<BibtexType> {
-        match &self.content_type {
+        match &self.content {
             Some(c) => Some(content_types.get(c).unwrap().clone()),
             None => None,
         }
