@@ -175,7 +175,7 @@ fn clear_file(file: &mut std::fs::File) {
 /// checksum, but any difference in the contents of the directory
 /// would result in a different checksum.
 fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
-    let mut directory_content = Vec::<u8>::new();
+    let mut sha = Sha1::new();
 
     for f in WalkDir::new(directory_path)
         .min_depth(1)
@@ -183,22 +183,22 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
         .into_iter()
     {
         let f = f.unwrap();
-        // First, append the file name to the directory content vector.
-        directory_content.append(&mut Vec::<u8>::from(
+        // First, incorporate the file name.
+        sha.update(
             f.path()
                 .strip_prefix(directory_path)
                 .unwrap()
                 .clone()
                 .to_str()
-                .unwrap(),
-        ));
-        // Then, if the file is a file type, also append its contents.
+                .unwrap()
+                .as_bytes(),
+        );
+        // Then, if the file is a file type, also incorporate its
+        // contents.
         if f.path().is_file() {
-            directory_content.append(&mut read(f.path()).unwrap());
+            sha.update(&read(f.path()).unwrap());
         }
     }
-    let mut sha = Sha1::new();
-    sha.update(&directory_content);
     sha
 }
 
@@ -215,9 +215,7 @@ fn sha1(file_or_dir: &walkdir::DirEntry) -> String {
             .digest()
             .to_string();
     } else {
-        let file_contents = read(file_or_dir.path()).expect("failed to read file");
-        let mut sha = sha1::Sha1::new();
-        sha.update(&file_contents);
+        let sha = sha1::Sha1::from(&read(file_or_dir.path()).expect("failed to read file"));
         content_sha = sha.digest().to_string();
     }
     content_sha
