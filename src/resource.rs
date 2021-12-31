@@ -51,7 +51,7 @@ enum MediaPrefix {
 /// Media (formerly MIME) type.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 #[serde(try_from = "&str", into = "String")]
-struct MediaType {
+pub struct MediaType {
     r#type: MediaPrefix,
     subtype: String,
 }
@@ -120,8 +120,8 @@ impl From<MediaType> for String {
 /// type.
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
 pub struct DocumentType {
-    extension: String,
-    mime: Option<MediaType>,
+    pub extension: String,
+    pub mime: Option<MediaType>,
 }
 
 /// DateTime.

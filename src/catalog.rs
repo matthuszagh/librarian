@@ -52,10 +52,23 @@ impl Catalog {
             orphaned_catalog_resources.insert(resource.historical_checksums[0].clone());
         }
 
+        // Hashmap of document types, where the key is the extension
+        // and the value is the document type name. This is used for
+        // fast lookup of an associated document type for a given
+        // extension, which is used when initializing a new resource
+        // in the catalog.
+        let mut doc_types = IndexMap::<String, String>::new();
+        for (key, value) in &self.document_types {
+            // Lower-case the document type extension and the actual
+            // file extension (later) to ensure comparisons don't fail
+            // as a result of case.
+            doc_types.insert(value.extension.to_lowercase().clone(), key.clone());
+        }
+
         // Catalog each new resource or update the checksum if the
         // resource's contents have changed.
         for (checksum, resource_path) in resources {
-            let file_name = resource_path
+            let mut file_name = resource_path
                 .file_name()
                 .unwrap()
                 .to_str()
@@ -75,6 +88,40 @@ impl Catalog {
                     // rename the file to the current SHA-1 contents
                     let checksum = checksum.to_string();
                     let new_file_path = resource_path.parent().unwrap().join(checksum.clone());
+
+                    // If the file extension matches a document type
+                    // extension, initialize the document type to
+                    // that. Also, remove the extension from the
+                    // title.
+                    let doc_type: Option<String>;
+                    match resource_path.extension() {
+                        Some(e) => match e.to_str() {
+                            Some(e) => {
+                                match doc_types.get(e) {
+                                    Some(d) => {
+                                        doc_type = Some(d.clone());
+                                        // This shouldn't fail if getting the extension
+                                        // succeeds.
+                                        file_name = resource_path
+                                            .file_stem()
+                                            .unwrap()
+                                            .to_str()
+                                            .unwrap()
+                                            .to_string();
+                                    }
+                                    None => {
+                                        doc_type = None;
+                                    }
+                                }
+                            }
+                            None => {
+                                doc_type = None;
+                            }
+                        },
+                        None => {
+                            doc_type = None;
+                        }
+                    };
                     std::fs::rename(resource_path, new_file_path.clone()).unwrap();
 
                     catalog_resources.insert(
@@ -94,7 +141,7 @@ impl Catalog {
                             number: None,
                             doi: None,
                             tags: None,
-                            document: None,
+                            document: doc_type,
                             content: None,
                             url: None,
                             checksum: checksum.clone(),
