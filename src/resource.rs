@@ -1,7 +1,5 @@
 use crate::bibtex::BibtexType;
 
-use fuzzy_matcher::skim::SkimMatcherV2;
-use fuzzy_matcher::FuzzyMatcher;
 use indexmap::IndexMap;
 use std::cmp::PartialOrd;
 use std::convert::TryFrom;
@@ -408,235 +406,121 @@ pub struct Resource {
 }
 
 impl Resource {
-    // TODO I imagine there's a much more concise (and less
-    // repetitive) way of fuzzy-matching all fields.
-    pub fn fuzzy_match(&self, query: &str) -> i64 {
-        self.fuzzy_match_field("title", query)
-            + self.fuzzy_match_field("subtitle", query)
-            + self.fuzzy_match_field("author", query)
-            + self.fuzzy_match_field("editor", query)
-            + self.fuzzy_match_field("date", query)
-            + self.fuzzy_match_field("edition", query)
-            + self.fuzzy_match_field("version", query)
-            + self.fuzzy_match_field("publisher", query)
-            + self.fuzzy_match_field("organization", query)
-            + self.fuzzy_match_field("journal", query)
-            + self.fuzzy_match_field("volume", query)
-            + self.fuzzy_match_field("number", query)
-            + self.fuzzy_match_field("doi", query)
-            + self.fuzzy_match_field("tags", query)
-            + self.fuzzy_match_field("document", query)
-            + self.fuzzy_match_field("content", query)
-            + self.fuzzy_match_field("url", query)
-            + self.fuzzy_match_field("checksum", query)
-            + self.fuzzy_match_field("historical_checksums", query)
+    /// Concatenate fields into a single string, using a space as a
+    /// delimeter between fields.
+    ///
+    /// This can be used for matching against multiple fields of a
+    /// resource.
+    ///
+    /// TODO this creates too many spaces because empty strings still
+    /// register.
+    pub fn concat_fields(&self, fields: Vec<&str>) -> String {
+        fields
+            .iter()
+            .filter_map(|x| self.field_string(x))
+            .collect::<Vec<String>>()
+            .join(" ")
     }
 
-    // TODO remove unicode information to make fuzzy searching
-    // easier. E.g., 'ä' should be searched as 'a'.
-    pub fn fuzzy_match_field(&self, field: &str, query: &str) -> i64 {
-        let matcher = SkimMatcherV2::default().ignore_case();
-
-        return match field {
-            "title" => match matcher.fuzzy_match(&self.title, query) {
-                Some(s) => s,
-                None => 0,
-            },
+    /// Return a string representation of a field.
+    ///
+    /// When an optional field is None, an empty string is
+    /// returned. When a field contains a list of values, all items are
+    /// concatenated separated by spaces.
+    fn field_string(&self, field: &str) -> Option<String> {
+        match field {
+            "title" => Some(self.title.clone()),
             "subtitle" => match &self.subtitle {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "author" => match &self.author {
-                Some(oa) => oa.iter().fold(0, |acc, a| {
-                    acc + match &a.first {
-                        Some(f) => match matcher.fuzzy_match(&f, query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    } + match &a.middle {
-                        Some(f) => match matcher.fuzzy_match(&f, query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    } + match &a.last {
-                        Some(f) => match matcher.fuzzy_match(&f, query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }
-                }),
-                None => 0,
+                Some(it) => Some(
+                    it.iter()
+                        .map(|x| String::from(x.clone()))
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                ),
+                None => None,
             },
-            "editor" => match &self.author {
-                Some(oe) => oe.iter().fold(0, |acc, a| {
-                    acc + match &a.first {
-                        Some(f) => match matcher.fuzzy_match(&f, query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    } + match &a.middle {
-                        Some(f) => match matcher.fuzzy_match(&f, query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    } + match &a.last {
-                        Some(f) => match matcher.fuzzy_match(&f, query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }
-                }),
-                None => 0,
+            "editor" => match &self.editor {
+                Some(it) => Some(
+                    it.iter()
+                        .map(|x| String::from(x.clone()))
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                ),
+                None => None,
             },
             "date" => match &self.date {
-                Some(d) => {
-                    (match d.year {
-                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }) + (match d.month {
-                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }) + (match d.day {
-                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }) + (match d.hour {
-                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }) + (match d.minute {
-                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    }) + (match d.second {
-                        Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                            Some(s) => s,
-                            None => 0,
-                        },
-                        None => 0,
-                    })
-                }
-                None => 0,
+                Some(x) => Some(String::from(x.clone())),
+                None => None,
             },
             "edition" => match &self.edition {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "version" => match &self.version {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "publisher" => match &self.publisher {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "organization" => match &self.organization {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "journal" => match &self.journal {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "volume" => match &self.volume {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "number" => match &self.number {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "doi" => match &self.doi {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "tags" => match &self.tags {
-                Some(ot) => ot.iter().fold(0, |acc, x| {
-                    acc + match matcher.fuzzy_match(&x, query) {
-                        Some(s) => s,
-                        None => 0,
-                    }
-                }),
-                None => 0,
+                Some(it) => Some(
+                    it.iter()
+                        .map(|x| x.clone())
+                        .collect::<Vec<String>>()
+                        .join(" "),
+                ),
+                None => None,
             },
             "document" => match &self.document {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "content" => match &self.content {
-                Some(f) => match matcher.fuzzy_match(&f, query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(x.clone()),
+                None => None,
             },
             "url" => match &self.url {
-                Some(f) => match matcher.fuzzy_match(&f.to_string(), query) {
-                    Some(s) => s,
-                    None => 0,
-                },
-                None => 0,
+                Some(x) => Some(String::from(x.clone())),
+                None => None,
             },
-            "checksum" => match matcher.fuzzy_match(&self.checksum, query) {
-                Some(s) => s,
-                None => 0,
-            },
-            "historical_checksums" => self.historical_checksums.iter().fold(0, |acc, c| {
-                acc + match matcher.fuzzy_match(&c, query) {
-                    Some(s) => s,
-                    None => 0,
-                }
-            }),
-            &_ => panic!("invalid field"),
-        };
+            "checksum" => Some(self.checksum.clone()),
+            // TODO should probably exclude historical checksum that
+            // is identical to checksum
+            "historical_checksums" => Some(
+                self.historical_checksums
+                    .iter()
+                    .map(|x| x.clone())
+                    .collect::<Vec<String>>()
+                    .join(" "),
+            ),
+            &_ => panic!("invalid field specifier"),
+        }
     }
 
     /// The BibTeX type associated with the current resource.
@@ -656,5 +540,74 @@ impl Resource {
             Some(c) => Some(content_types.get(c).unwrap().clone()),
             None => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_resource_concat_fields() {
+        let resource: Resource = serde_json::from_str(
+            "{
+              \"title\": \"Classical Electrodynamics\",
+              \"author\": [
+                \"John David Jackson\"
+              ],
+              \"date\": \"1999\",
+              \"edition\": \"3\",
+              \"publisher\": \"John Wiley & Sons\",
+              \"tags\": [
+                \"physics\",
+                \"electromagnetism\"
+              ],
+              \"document\": \"pdf\",
+              \"content\": \"textbook\",
+              \"checksum\": \"88259e88e7677e5ae8a31e33f177a2198cabe95c\",
+              \"historical_checksums\": [
+                \"88259e88e7677e5ae8a31e33f177a2198cabe95c\"
+              ]
+            }",
+        )
+        .unwrap();
+
+        let actual = resource.concat_fields(vec![
+            "title",
+            "subtitle",
+            "author",
+            "editor",
+            "date",
+            "edition",
+            "version",
+            "publisher",
+            "organization",
+            "journal",
+            "volume",
+            "number",
+            "doi",
+            "tags",
+            "document",
+            "content",
+            "url",
+            "checksum",
+            "historical_checksums",
+        ]);
+        let want = concat!(
+            "Classical Electrodynamics ",
+            "John David Jackson ",
+            "1999 ",
+            "3 ",
+            "John Wiley & Sons ",
+            "physics ",
+            "electromagnetism ",
+            "pdf ",
+            "textbook ",
+            "88259e88e7677e5ae8a31e33f177a2198cabe95c ",
+            "88259e88e7677e5ae8a31e33f177a2198cabe95c"
+        );
+        println!("actual: {:?}", actual);
+        println!("want: {:?}", want);
+        assert!(actual == want);
     }
 }
