@@ -38,30 +38,23 @@ fn bibtex_serialize_field(field: &str, value: Option<String>) -> String {
 /// * `field` - Field identifier (e.g., "author").
 /// * `names` - Collection of names.
 fn bibtex_serialize_names(field: &str, names: Option<Vec<Name>>) -> String {
-    let mut names_string = String::new();
-
     match names {
-        Some(names) => {
-            let name_count = names.len();
-
-            if name_count > 0 {
-                for (i, name) in names.iter().enumerate() {
-                    let mut name_string: String = serde_json::to_string(&name).unwrap();
-                    // we discard the first and last character because serde adds quotes
-                    name_string = name_string[1..name_string.len() - 1].to_string();
-
-                    if i < name_count - 1 {
-                        names_string.push_str(format!("{} and ", name_string).as_str());
-                    } else {
-                        names_string.push_str(format!("{}", name_string).as_str());
-                    }
-                }
-                bibtex_serialize_field(field, Some(names_string))
+        Some(x) => {
+            if x.len() > 0 {
+                bibtex_serialize_field(
+                    field,
+                    Some(
+                        x.iter()
+                            .map(|n| String::from(n.clone()))
+                            .collect::<Vec<String>>()
+                            .join(" and "),
+                    ),
+                )
             } else {
-                names_string
+                String::new()
             }
         }
-        None => names_string,
+        None => String::new(),
     }
 }
 
