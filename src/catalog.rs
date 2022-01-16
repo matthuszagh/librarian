@@ -160,12 +160,37 @@ impl Catalog {
 
         self.resources = catalog_resources.values().cloned().collect();
 
+        // Sort resources according to several fields, in sequence. A
+        // tie in one field will then sort by the next field in the
+        // sequence. The order of fields is:
+        //
+        // 1. title
+        // 2. date
+        // 3. edition
+        // 4. version
+        // 5. volume
+
         // Sort resources by title in alphanumeric order and by
         // datetime, when the title results in a tie.
         self.resources.sort_by(|a, b| {
             let title_cmp = a.title.partial_cmp(&b.title).unwrap();
             if title_cmp == Ordering::Equal {
-                a.date.partial_cmp(&b.date).unwrap()
+                let date_cmp = a.date.partial_cmp(&b.date).unwrap();
+                if date_cmp == Ordering::Equal {
+                    let edition_cmp = a.edition.partial_cmp(&b.edition).unwrap();
+                    if edition_cmp == Ordering::Equal {
+                        let version_cmp = a.version.partial_cmp(&b.version).unwrap();
+                        if version_cmp == Ordering::Equal {
+                            a.volume.partial_cmp(&b.volume).unwrap()
+                        } else {
+                            version_cmp
+                        }
+                    } else {
+                        edition_cmp
+                    }
+                } else {
+                    date_cmp
+                }
             } else {
                 title_cmp
             }
