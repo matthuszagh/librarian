@@ -527,7 +527,7 @@ impl Resource {
     ///
     /// # Arguments
     ///
-    /// * `contents` - A collection of content types as defined
+    /// * `content_types` - A collection of content types as defined
     /// in the catalog. The map key is a string identifying the
     /// content type and the map value is the associated BibTeX type.
     ///
@@ -537,7 +537,13 @@ impl Resource {
     /// the content types defined in the catalog.
     pub fn bibtex_type(&self, content_types: &IndexMap<String, BibtexType>) -> Option<BibtexType> {
         match &self.content {
-            Some(c) => Some(content_types.get(c).unwrap().clone()),
+            Some(c) => Some(match content_types.get(c) {
+                Some(ct) => ct.clone(),
+                None => panic!(
+                    "Failed to retrieve bibtex type for resource {:?}",
+                    self.checksum
+                ),
+            }),
             None => None,
         }
     }
