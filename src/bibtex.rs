@@ -2,6 +2,7 @@ use crate::catalog::Catalog;
 use crate::resource::{Name, Resource};
 
 use indexmap::IndexMap;
+use regex::Regex;
 use serde::{Deserialize, Serialize};
 use std::fs::OpenOptions;
 use std::io::Write;
@@ -26,6 +27,10 @@ fn bibtex_serialize_field(field: &str, value: Option<String>) -> String {
     match value {
         Some(v) => {
             let indent = "    ";
+            // Escape any unescaped ampersands (i.e., '&' -> '\&', but
+            // '\&' -> '\&').
+            let re = Regex::new(r"(?P<c>[^\\])&").unwrap();
+            let v = re.replace_all(&v, r"$c\&");
             format!("{}{}={{{}}},\n", indent, field, v)
         }
         None => String::new(),
@@ -220,5 +225,17 @@ mod tests {
 
         names.pop();
         assert!(bibtex_serialize_names("forward", Some(names)) == "");
+    }
+
+    #[test]
+    fn test_bibtex_serialize_field() {
+        assert!(
+            bibtex_serialize_field("publisher", Some(String::from("John Wiley & Sons")))
+                == String::from("    publisher={John Wiley \\& Sons},\n")
+        );
+        assert!(
+            bibtex_serialize_field("publisher", Some(String::from(r"John Wiley \& Sons")))
+                == String::from("    publisher={John Wiley \\& Sons},\n")
+        );
     }
 }
