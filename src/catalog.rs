@@ -423,7 +423,12 @@ pub fn librarian_catalog(
             // If a resource exists with identical content to the
             // current resource, delete the current resource.
             if resources.contains_key(&content_sha) {
-                std::fs::remove_file(file.path()).unwrap();
+                let metadata = std::fs::metadata(file.path()).unwrap();
+                if metadata.is_dir() {
+                    std::fs::remove_dir_all(file.path()).unwrap();
+                } else {
+                    std::fs::remove_file(file.path()).unwrap();
+                }
             } else {
                 resources.insert(content_sha, file.clone().path().to_path_buf());
             }
