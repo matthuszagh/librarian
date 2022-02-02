@@ -139,6 +139,7 @@ impl Catalog {
                             journal: None,
                             volume: None,
                             number: None,
+                            part_number: None,
                             doi: None,
                             tags: None,
                             document: doc_type,

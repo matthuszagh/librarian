@@ -385,6 +385,8 @@ pub struct Resource {
     /// numbers. For example, they often contain character suffixes as
     /// in "57A".
     pub number: Option<String>,
+    /// Manufacturer part number.
+    pub part_number: Option<String>,
     /// TODO create a DOI struct with custom
     /// serialization/deserialization.
     /// Digital object identifier (DOI).
@@ -481,6 +483,10 @@ impl Resource {
                 None => None,
             },
             "number" => match &self.number {
+                Some(x) => Some(x.clone()),
+                None => None,
+            },
+            "part_number" => match &self.part_number {
                 Some(x) => Some(x.clone()),
                 None => None,
             },
@@ -591,6 +597,7 @@ mod tests {
             "journal",
             "volume",
             "number",
+            "part_number",
             "doi",
             "tags",
             "document",
