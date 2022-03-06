@@ -14,6 +14,7 @@ use std::path::PathBuf;
 pub enum BibtexType {
     Article,
     Book,
+    Image,
     Manual,
     Miscellaneous,
     Online,
@@ -21,6 +22,7 @@ pub enum BibtexType {
     Report,
     Software,
     TechReport,
+    Video,
 }
 
 fn bibtex_serialize_field(field: &str, value: Option<String>) -> String {
