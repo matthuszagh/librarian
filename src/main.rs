@@ -26,9 +26,7 @@ fn main() {
         .expect("Failed to open or create catalog");
     let mut catalog = Catalog::read_from_file(&mut catalog_file);
 
-    // Invoke the function for the appropriate subcommand. If no
-    // subcommand is given, perform "catalog" followed by
-    // "instantiate".
+    // Invoke the function for the given subcommand.
     if args.is_present("catalog") {
         librarian_catalog(
             &mut catalog_file,
