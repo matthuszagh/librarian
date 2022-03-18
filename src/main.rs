@@ -36,6 +36,10 @@ fn main() {
                 .subcommand_matches("catalog")
                 .unwrap()
                 .is_present("cache"),
+            args
+                .subcommand_matches("catalog")
+                .unwrap()
+                .is_present("query"),
         );
     } else if args.is_present("instantiate") {
         librarian_instantiate(&catalog);
@@ -101,6 +105,13 @@ fn parse_app_args() -> clap::ArgMatches {
                         .long_about("Using the cache drastically speeds up cataloging and produces correct behavior in almost all cases.")
                         .short('c')
                         .long("no-cache"),
+                )
+                .arg(
+                    Arg::new("query")
+                        .about("disable prompt for deleting orphaned catalog entries")
+                        .short('n')
+                        .long("no-query"),
+                )
                 ),
         )
         .subcommand(App::new("catalog").about("catalogs all new original resources"))

@@ -8,7 +8,7 @@ use sha1::Sha1;
 use std::cmp::Ordering;
 use std::collections::HashSet;
 use std::fs::{read, OpenOptions};
-use std::io::{prelude::*, Read, SeekFrom, Write};
+use std::io::{prelude::*, stdin, stdout, Read, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::SystemTime;
 use walkdir::WalkDir;
@@ -34,7 +34,14 @@ impl Catalog {
     /// # Arguments
     ///
     /// * `resources` - Checksum and file path for every resource.
-    pub fn update(&mut self, resources: &IndexMap<String, PathBuf>) {
+    /// * `query_delete` - Query the user before deleting each resource.
+    /// * `display_summary` - After updating the catalog, display a
+    /// summary of all changes made.
+    pub fn update(
+        &mut self,
+        resources: &IndexMap<String, PathBuf>,
+        query_delete: bool,
+    ) {
         // Create a hashmap of all cataloged resources for fast
         // lookup. The first entry of the hashmap is the initial checksum
         // of the resource, which is used to determine whether a resource
@@ -156,7 +163,36 @@ impl Catalog {
         // remove cataloged resources that are no longer in the resources
         // directory
         for resource in orphaned_catalog_resources.iter() {
-            catalog_resources.remove(resource);
+            let mut delete = true;
+
+            if query_delete {
+                let mut response = String::new();
+                loop {
+                    print!("Remove orphan {}? (y/n): ", resource);
+                    stdout().flush().expect("Failed to flush output stream.");
+                    match stdin().read_line(&mut response) {
+                        Ok(_) => {
+                            if response == "y\n" {
+                                break;
+                            } else if response == "n\n" {
+                                delete = false;
+                                break;
+                            } else {
+                                println!("Invalid response, please enter 'y' or 'n'.");
+                                response.clear();
+                            }
+                        }
+                        Err(_) => {
+                            println!("Invalid string, please enter 'y' or 'n'.");
+                            response.clear();
+                        }
+                    }
+                }
+            }
+
+            if delete {
+                catalog_resources.remove(resource);
+            }
         }
 
         self.resources = catalog_resources.values().cloned().collect();
@@ -304,11 +340,15 @@ fn sha1(file_or_dir: &walkdir::DirEntry) -> String {
 /// was verified as reported by the cache file. If `true`, the
 /// checksum of all resources will be computed, but the cache file
 /// will still be updated.
+/// * `disable_prompt` - Normally, we prompt the user before each
+/// orphaned catalog entry is deleted. If this is true, the prompt is
+/// suppressed and the orphan is immediately deleted.
 pub fn librarian_catalog(
     catalog_file: &mut std::fs::File,
     catalog: &mut Catalog,
     resources_path: &PathBuf,
     disable_cache: bool,
+    disable_query: bool,
 ) {
     // Construct the cache object from the cache file. This is
     // necessary regardless of whether we use this file to avoid
@@ -364,7 +404,7 @@ pub fn librarian_catalog(
             match disable_cache {
                 true => {
                     cache_invalid = true;
-                },
+                }
                 false => match cache.get(&file_name) {
                     Some(cache_data) => match file.metadata() {
                         Ok(m) => match m.modified() {
@@ -447,7 +487,7 @@ pub fn librarian_catalog(
     serde_json::to_writer_pretty(&mut cache_file, &cache).unwrap();
 
     // update catalog and write it to disk
-    catalog.update(&resources);
+    catalog.update(&resources, !disable_query);
     clear_file(catalog_file);
     serde_json::to_writer_pretty(catalog_file, &catalog).unwrap();
 }
