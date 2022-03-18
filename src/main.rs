@@ -32,16 +32,10 @@ fn main() {
             &mut catalog_file,
             &mut catalog,
             &resources_path,
-            match args
+            args
                 .subcommand_matches("catalog")
                 .unwrap()
-                .value_of("cache")
-                .expect("must provide an argument to the cache option")
-            {
-                "true" => true,
-                "false" => false,
-                &_ => panic!("true and false should be the only valid arguments"),
-            },
+                .is_present("cache"),
         );
     } else if args.is_present("instantiate") {
         librarian_instantiate(&catalog);
@@ -103,12 +97,10 @@ fn parse_app_args() -> clap::ArgMatches {
                 .about("catalogs all new original resources")
                 .arg(
                     Arg::new("cache")
-                        .about("use the cache file to reduce the time required for cataloging")
-                        .takes_value(true)
+                        .about("disable the cache file during cataloging")
+                        .long_about("Using the cache drastically speeds up cataloging and produces correct behavior in almost all cases.")
                         .short('c')
-                        .long("cache")
-                        .possible_values(&["true", "false"])
-                        .default_value("true"),
+                        .long("no-cache"),
                 ),
         )
         .subcommand(App::new("catalog").about("catalogs all new original resources"))

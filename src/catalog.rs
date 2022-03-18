@@ -299,16 +299,16 @@ fn sha1(file_or_dir: &walkdir::DirEntry) -> String {
 ///
 /// # Arguments
 ///
-/// * `use_cache` - If `true`, only compute the checksum of resources
-/// modified more recently than the last time their checksum was
-/// verified as reported by the cache file. If `false`, the checksum
-/// of all resources will be computed, but the cache file will still
-/// be updated.
+/// * `disable_cache` - If `false`, only compute the checksum of
+/// resources modified more recently than the last time their checksum
+/// was verified as reported by the cache file. If `true`, the
+/// checksum of all resources will be computed, but the cache file
+/// will still be updated.
 pub fn librarian_catalog(
     catalog_file: &mut std::fs::File,
     catalog: &mut Catalog,
     resources_path: &PathBuf,
-    use_cache: bool,
+    disable_cache: bool,
 ) {
     // Construct the cache object from the cache file. This is
     // necessary regardless of whether we use this file to avoid
@@ -361,8 +361,11 @@ pub fn librarian_catalog(
             // than the resource was modified, use that catalog
             // checksum. Otherwise, recompute the checksum and update
             // the cache verification time.
-            match use_cache {
-                true => match cache.get(&file_name) {
+            match disable_cache {
+                true => {
+                    cache_invalid = true;
+                },
+                false => match cache.get(&file_name) {
                     Some(cache_data) => match file.metadata() {
                         Ok(m) => match m.modified() {
                             Ok(modified) => {
@@ -389,9 +392,6 @@ pub fn librarian_catalog(
                         cache_invalid = true;
                     }
                 },
-                false => {
-                    cache_invalid = true;
-                }
             }
 
             let content_sha: String = match cache_invalid {
