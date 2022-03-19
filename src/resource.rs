@@ -350,6 +350,7 @@ impl From<Name> for String {
 /// directory (e.g., holding the contents of a webpage).
 #[skip_serializing_none]
 #[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq)]
+#[serde(deny_unknown_fields)] // error when unknown fields encountered
 pub struct Resource {
     /// Title.
     pub title: String,
