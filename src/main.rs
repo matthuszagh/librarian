@@ -112,9 +112,7 @@ fn parse_app_args() -> clap::ArgMatches {
                         .short('n')
                         .long("no-query"),
                 )
-                ),
         )
-        .subcommand(App::new("catalog").about("catalogs all new original resources"))
         .subcommand(
             App::new("instantiate").about("instantiates one or more instances from the catalog"),
         )

@@ -37,11 +37,7 @@ impl Catalog {
     /// * `query_delete` - Query the user before deleting each resource.
     /// * `display_summary` - After updating the catalog, display a
     /// summary of all changes made.
-    pub fn update(
-        &mut self,
-        resources: &IndexMap<String, PathBuf>,
-        query_delete: bool,
-    ) {
+    pub fn update(&mut self, resources: &IndexMap<String, PathBuf>, query_delete: bool) {
         // Create a hashmap of all cataloged resources for fast
         // lookup. The first entry of the hashmap is the initial checksum
         // of the resource, which is used to determine whether a resource
