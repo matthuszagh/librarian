@@ -14,6 +14,7 @@ use std::path::PathBuf;
 pub enum BibtexType {
     Article,
     Book,
+    Collection,
     Image,
     Manual,
     Miscellaneous,
