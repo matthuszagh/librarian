@@ -394,10 +394,20 @@ pub fn librarian_catalog(
     // resource) and should be removed from the cache.
     let mut cache_orphans = cache.clone();
 
+    // We need to know the file name of all cataloged resources in
+    // order to determine whether an item not in the cache is a new
+    // resource, or simply an item whose entry in the cache has been
+    // deleted.
+    let catalog_resources: HashSet<String> = catalog
+        .resources
+        .iter()
+        .map(|r| r.historical_checksums[0].clone())
+        .collect();
+
     // Construct a hashmap of the SHA-1 checksum and path of each
     // resource. This also updates the cache (if
     // ``disable_cache==false``) and deletes new resources for which
-    // there are existing resources with identical content.
+    // there is an existing resource with identical content.
     let mut resources = IndexMap::<String, PathBuf>::new();
     WalkDir::new(resources_path)
         .min_depth(1)
@@ -452,15 +462,16 @@ pub fn librarian_catalog(
             let content_sha: String = match cache_invalid {
                 true => {
                     let checksum = sha1(&file);
-                    let mut cache_key = file_name;
-                    // If the cache does not contain an entry whose
-                    // key is the file name, then the entry
-                    // corresponds to a new resource and the index
-                    // should be set to the checksum, not the old file
-                    // name. This is necessary because the file is not
-                    // renamed to the initial checksum until we call
-                    // `catalog.update`.
-                    if !cache.contains_key(&cache_key) {
+                    let mut cache_key = file_name.clone();
+                    // If the resource is new (i.e., not previously
+                    // cataloged), then the index should be set to the
+                    // checksum, not the old file name. This is
+                    // necessary because the file is not renamed to
+                    // the initial checksum until we call
+                    // `catalog.update`. We cannot simply search the
+                    // cache for this value because the cache entry
+                    // could have been deleted.
+                    if !catalog_resources.contains(&file_name) {
                         cache_key = checksum.clone();
                     }
                     // insert updates an existing key if it already exists
