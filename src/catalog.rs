@@ -2,12 +2,13 @@ use crate::bibtex::BibtexType;
 use crate::cache::{read_cache_from_file, CacheFields};
 use crate::resource::{DocumentType, Resource};
 
+use hex;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use sha1::Sha1;
+use sha1::{Digest, Sha1};
 use std::cmp::Ordering;
 use std::collections::HashSet;
-use std::fs::{read, OpenOptions};
+use std::fs::{File, OpenOptions};
 use std::io::{prelude::*, stdin, stdout, Read, SeekFrom, Write};
 use std::path::PathBuf;
 use std::time::SystemTime;
@@ -271,7 +272,26 @@ fn clear_file(file: &mut std::fs::File) {
     file.seek(SeekFrom::Start(0)).unwrap();
 }
 
-/// Compute a SHA1 checksum of a directory.
+// Compute the SHA1 checksum for the contents of a file.
+fn file_sha1(filepath: &PathBuf, hasher: &mut Sha1) {
+    // Read the file in 0x4000 byte chunks to limit the total memory
+    // allocation at any given time.
+    let chunk_size = 0x4000;
+    let mut f = File::open(filepath).expect("failed to open file");
+    loop {
+        let mut chunk = Vec::<u8>::with_capacity(chunk_size);
+        let bytes_read = std::io::Read::by_ref(&mut f)
+            .take(chunk_size as u64)
+            .read_to_end(&mut chunk)
+            .expect("failed to read from file");
+        hasher.update(chunk);
+        if bytes_read < chunk_size {
+            break;
+        }
+    }
+}
+
+/// Compute a SHA1 checksum for the contents of a directory.
 ///
 /// The checksum incorporates the contents of all files in the
 /// directory as well as the path and name of every file relative to
@@ -279,9 +299,7 @@ fn clear_file(file: &mut std::fs::File) {
 /// different locations in the filesystem would yield the same
 /// checksum, but any difference in the contents of the directory
 /// would result in a different checksum.
-fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
-    let mut sha = Sha1::new();
-
+fn directory_recursive_sha1(directory_path: &PathBuf, hasher: &mut Sha1) {
     for f in WalkDir::new(directory_path)
         .min_depth(1)
         .sort_by_file_name()
@@ -289,7 +307,7 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
     {
         let f = f.unwrap();
         // First, incorporate the file name.
-        sha.update(
+        hasher.update(
             f.path()
                 .strip_prefix(directory_path)
                 .unwrap()
@@ -301,10 +319,9 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
         // Then, if the file is a file type, also incorporate its
         // contents.
         if f.path().is_file() {
-            sha.update(&read(f.path()).unwrap());
+            file_sha1(&f.into_path(), hasher);
         }
     }
-    sha
 }
 
 /// Compute the checksum of a file or directory.
@@ -315,13 +332,13 @@ fn directory_recursive_sha1(directory_path: &PathBuf) -> Sha1 {
 /// be computed.
 fn sha1(file_or_dir: &walkdir::DirEntry) -> String {
     let content_sha: String;
+    let mut hasher = Sha1::new();
     if file_or_dir.file_type().is_dir() {
-        content_sha = directory_recursive_sha1(&file_or_dir.clone().into_path())
-            .digest()
-            .to_string();
+        directory_recursive_sha1(&file_or_dir.clone().into_path(), &mut hasher);
+        content_sha = hex::encode(hasher.finalize());
     } else {
-        let sha = sha1::Sha1::from(&read(file_or_dir.path()).expect("failed to read file"));
-        content_sha = sha.digest().to_string();
+        file_sha1(&file_or_dir.clone().into_path(), &mut hasher);
+        content_sha = hex::encode(hasher.finalize());
     }
     content_sha
 }
@@ -378,7 +395,9 @@ pub fn librarian_catalog(
     let mut cache_orphans = cache.clone();
 
     // Construct a hashmap of the SHA-1 checksum and path of each
-    // resource.
+    // resource. This also updates the cache (if
+    // ``disable_cache==false``) and deletes new resources for which
+    // there are existing resources with identical content.
     let mut resources = IndexMap::<String, PathBuf>::new();
     WalkDir::new(resources_path)
         .min_depth(1)
