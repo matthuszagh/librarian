@@ -34,6 +34,7 @@ fn librarian_fuzzy_search(catalog: &Catalog, query: &str) {
                 "journal",
                 "volume",
                 "number",
+                "part_number",
                 "doi",
                 "tags",
                 "document",
