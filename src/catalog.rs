@@ -35,10 +35,12 @@ impl Catalog {
     /// # Arguments
     ///
     /// * `resources` - Checksum and file path for every resource.
-    /// * `query_delete` - Query the user before deleting each resource.
-    /// * `display_summary` - After updating the catalog, display a
-    /// summary of all changes made.
-    pub fn update(&mut self, resources: &IndexMap<String, PathBuf>, query_delete: bool) {
+    /// * `remove_orphans` - Whether to remove orphans when
+    /// cataloging. If set to "ask", prompt for each orphan to be
+    /// removed. When set to "true", automatically remove all orphans
+    /// without prompting. When set to "false", automatically keep all
+    /// orphans without prompting.
+    pub fn update(&mut self, resources: &IndexMap<String, PathBuf>, remove_orphans: &str) {
         // Create a hashmap of all cataloged resources for fast
         // lookup. The first entry of the hashmap is the initial checksum
         // of the resource, which is used to determine whether a resource
@@ -160,32 +162,34 @@ impl Catalog {
         // remove cataloged resources that are no longer in the resources
         // directory
         for resource in orphaned_catalog_resources.iter() {
-            let mut delete = true;
-
-            if query_delete {
-                let mut response = String::new();
-                loop {
-                    print!("Remove orphan {}? (y/n): ", resource);
-                    stdout().flush().expect("Failed to flush output stream.");
-                    match stdin().read_line(&mut response) {
-                        Ok(_) => {
-                            if response == "y\n" {
-                                break;
-                            } else if response == "n\n" {
-                                delete = false;
-                                break;
-                            } else {
-                                println!("Invalid response, please enter 'y' or 'n'.");
+            let delete = match remove_orphans {
+                "true" => true,
+                "false" => false,
+                "ask" => {
+                    let mut response = String::new();
+                    loop {
+                        print!("Remove orphan {}? (y/n): ", resource);
+                        stdout().flush().expect("Failed to flush output stream.");
+                        match stdin().read_line(&mut response) {
+                            Ok(_) => {
+                                if response == "y\n" {
+                                    break true;
+                                } else if response == "n\n" {
+                                    break false;
+                                } else {
+                                    println!("Invalid response, please enter 'y' or 'n'.");
+                                    response.clear();
+                                }
+                            }
+                            Err(_) => {
+                                println!("Invalid string, please enter 'y' or 'n'.");
                                 response.clear();
                             }
                         }
-                        Err(_) => {
-                            println!("Invalid string, please enter 'y' or 'n'.");
-                            response.clear();
-                        }
                     }
                 }
-            }
+                &_ => panic!("Possible argument values should prevent this condition from being reached. Check clap setup.")
+            };
 
             if delete {
                 catalog_resources.remove(resource);
@@ -353,15 +357,13 @@ fn sha1(file_or_dir: &walkdir::DirEntry) -> String {
 /// was verified as reported by the cache file. If `true`, the
 /// checksum of all resources will be computed, but the cache file
 /// will still be updated.
-/// * `disable_prompt` - Normally, we prompt the user before each
-/// orphaned catalog entry is deleted. If this is true, the prompt is
-/// suppressed and the orphan is immediately deleted.
+/// * `remove_orphans` - See description for `Catalog.update`.
 pub fn librarian_catalog(
     catalog_file: &mut std::fs::File,
     catalog: &mut Catalog,
     resources_path: &PathBuf,
     disable_cache: bool,
-    disable_query: bool,
+    remove_orphans: &str,
 ) {
     // Construct the cache object from the cache file. This is
     // necessary regardless of whether we use this file to avoid
@@ -513,7 +515,7 @@ pub fn librarian_catalog(
     serde_json::to_writer_pretty(&mut cache_file, &cache).unwrap();
 
     // update catalog and write it to disk
-    catalog.update(&resources, !disable_query);
+    catalog.update(&resources, remove_orphans);
     clear_file(catalog_file);
     serde_json::to_writer_pretty(catalog_file, &catalog).unwrap();
 }

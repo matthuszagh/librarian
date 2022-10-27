@@ -32,14 +32,13 @@ fn main() {
             &mut catalog_file,
             &mut catalog,
             &resources_path,
-            args
-                .subcommand_matches("catalog")
+            args.subcommand_matches("catalog")
                 .unwrap()
                 .is_present("cache"),
-            args
-                .subcommand_matches("catalog")
+            args.subcommand_matches("catalog")
                 .unwrap()
-                .is_present("query"),
+                .value_of("remove orphans")
+                .expect("remove-orphans requires a value"),
         );
     } else if args.is_present("instantiate") {
         librarian_instantiate(&catalog);
@@ -107,10 +106,12 @@ fn parse_app_args() -> clap::ArgMatches {
                         .long("no-cache"),
                 )
                 .arg(
-                    Arg::new("query")
-                        .about("disable prompt for deleting orphaned catalog entries")
-                        .short('n')
-                        .long("no-query"),
+                    Arg::new("remove orphans")
+                        .about("prompt to remove orphans, or don't ask and don't remove, or don't ask and do remove")
+                        .takes_value(true)
+                        .default_value("ask")
+                        .possible_values(&["ask", "true", "false"])
+                        .long("remove-orphans"),
                 )
         )
         .subcommand(
