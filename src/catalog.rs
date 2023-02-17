@@ -111,7 +111,8 @@ impl Catalog {
                     // title.
                     let doc_type: Option<String>;
                     match resource_path.extension() {
-                        Some(e) => match e.to_str() {
+                        // ignore extension case
+                        Some(e) => match e.to_ascii_lowercase().to_str() {
                             Some(e) => {
                                 match doc_types.get(e) {
                                     Some(d) => {
