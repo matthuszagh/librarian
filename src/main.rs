@@ -144,7 +144,9 @@ fn library_paths(args: &clap::ArgMatches) -> (PathBuf, PathBuf) {
             .expect("failed to retrieve directory argument"),
     )
     .canonicalize()
-    .expect("failed to resolve an absolute path from the specified directory path");
+    .expect(
+        "failed to resolve an absolute path from the specified directory path",
+    );
 
     let resources_directory = directory.join(
         args.value_of("resources")

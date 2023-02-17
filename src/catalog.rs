@@ -40,7 +40,11 @@ impl Catalog {
     /// removed. When set to "true", automatically remove all orphans
     /// without prompting. When set to "false", automatically keep all
     /// orphans without prompting.
-    pub fn update(&mut self, resources: &IndexMap<String, PathBuf>, remove_orphans: &str) {
+    pub fn update(
+        &mut self,
+        resources: &IndexMap<String, PathBuf>,
+        remove_orphans: &str,
+    ) {
         // Create a hashmap of all cataloged resources for fast
         // lookup. The first entry of the hashmap is the initial checksum
         // of the resource, which is used to determine whether a resource
@@ -54,8 +58,12 @@ impl Catalog {
         // remove these from the catalog.
         let mut orphaned_catalog_resources = HashSet::<String>::new();
         for resource in &self.resources {
-            catalog_resources.insert(resource.historical_checksums[0].clone(), resource.clone());
-            orphaned_catalog_resources.insert(resource.historical_checksums[0].clone());
+            catalog_resources.insert(
+                resource.historical_checksums[0].clone(),
+                resource.clone(),
+            );
+            orphaned_catalog_resources
+                .insert(resource.historical_checksums[0].clone());
         }
 
         // Hashmap of document types, where the key is the extension
@@ -68,7 +76,8 @@ impl Catalog {
             // Lower-case the document type extension and the actual
             // file extension (later) to ensure comparisons don't fail
             // as a result of case.
-            doc_types.insert(value.extension.to_lowercase().clone(), key.clone());
+            doc_types
+                .insert(value.extension.to_lowercase().clone(), key.clone());
         }
 
         // Catalog each new resource or update the checksum if the
@@ -93,7 +102,8 @@ impl Catalog {
                 None => {
                     // rename the file to the current SHA-1 contents
                     let checksum = checksum.to_string();
-                    let new_file_path = resource_path.parent().unwrap().join(checksum.clone());
+                    let new_file_path =
+                        resource_path.parent().unwrap().join(checksum.clone());
 
                     // If the file extension matches a document type
                     // extension, initialize the document type to
@@ -128,7 +138,8 @@ impl Catalog {
                             doc_type = None;
                         }
                     };
-                    std::fs::rename(resource_path, new_file_path.clone()).unwrap();
+                    std::fs::rename(resource_path, new_file_path.clone())
+                        .unwrap();
 
                     catalog_resources.insert(
                         checksum.clone(),
@@ -215,9 +226,11 @@ impl Catalog {
             if title_cmp == Ordering::Equal {
                 let date_cmp = a.date.partial_cmp(&b.date).unwrap();
                 if date_cmp == Ordering::Equal {
-                    let edition_cmp = a.edition.partial_cmp(&b.edition).unwrap();
+                    let edition_cmp =
+                        a.edition.partial_cmp(&b.edition).unwrap();
                     if edition_cmp == Ordering::Equal {
-                        let version_cmp = a.version.partial_cmp(&b.version).unwrap();
+                        let version_cmp =
+                            a.version.partial_cmp(&b.version).unwrap();
                         if version_cmp == Ordering::Equal {
                             a.volume.partial_cmp(&b.volume).unwrap()
                         } else {
@@ -417,7 +430,8 @@ pub fn librarian_catalog(
         .into_iter()
         .for_each(|f| {
             let file = f.unwrap();
-            let file_name: String = file.file_name().to_str().unwrap().to_string();
+            let file_name: String =
+                file.file_name().to_str().unwrap().to_string();
 
             cache_orphans.remove(&file_name);
 
@@ -444,7 +458,8 @@ pub fn librarian_catalog(
                                 {
                                     cache_invalid = true;
                                 } else {
-                                    cache_checksum = cache_data.checksum.clone();
+                                    cache_checksum =
+                                        cache_data.checksum.clone();
                                 }
                             }
                             Err(_) => {
@@ -499,7 +514,8 @@ pub fn librarian_catalog(
                     std::fs::remove_file(file.path()).unwrap();
                 }
             } else {
-                resources.insert(content_sha, file.clone().path().to_path_buf());
+                resources
+                    .insert(content_sha, file.clone().path().to_path_buf());
             }
         });
 

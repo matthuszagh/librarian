@@ -25,7 +25,9 @@ pub struct CacheFields {
 /// The cache as an `IndexMap` where the key is a string of the file
 /// name and the value is the `CacheFields` corresponding to that
 /// resource.
-pub fn read_cache_from_file(cache_file: &mut File) -> IndexMap<String, CacheFields> {
+pub fn read_cache_from_file(
+    cache_file: &mut File,
+) -> IndexMap<String, CacheFields> {
     let mut cache_contents = String::new();
     cache_file
         .read_to_string(&mut cache_contents)
@@ -39,6 +41,7 @@ pub fn read_cache_from_file(cache_file: &mut File) -> IndexMap<String, CacheFiel
         cache_contents = new_cache_contents.to_string();
     }
 
-    let cache: IndexMap<String, CacheFields> = serde_json::from_str(&cache_contents).unwrap();
+    let cache: IndexMap<String, CacheFields> =
+        serde_json::from_str(&cache_contents).unwrap();
     cache
 }

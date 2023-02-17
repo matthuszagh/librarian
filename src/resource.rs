@@ -126,7 +126,9 @@ pub struct DocumentType {
 ///
 /// The order of members in this struct is important since it is used
 /// by `#[derive(PartialOrd)]`.
-#[derive(Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq, PartialOrd)]
+#[derive(
+    Serialize, Deserialize, Debug, Clone, Hash, Eq, PartialEq, PartialOrd,
+)]
 #[serde(try_from = "&str", into = "String")]
 pub struct DateTime {
     pub year: Option<i32>,
@@ -188,26 +190,33 @@ impl TryFrom<&str> for DateTime {
             if len >= 7 {
                 let month = i32::from_str_radix(&s[5..7], 10).unwrap();
                 if month < 1 || month > 12 {
-                    return Err(DateTimeParseError::new("month must be between 1 and 12"));
+                    return Err(DateTimeParseError::new(
+                        "month must be between 1 and 12",
+                    ));
                 }
                 datetime.month = Some(month);
 
                 if len >= 10 {
                     let day = i32::from_str_radix(&s[8..10], 10).unwrap();
                     if day < 1 || day > 31 {
-                        return Err(DateTimeParseError::new("day must be between 1 and 31"));
+                        return Err(DateTimeParseError::new(
+                            "day must be between 1 and 31",
+                        ));
                     }
                     datetime.day = Some(day);
 
                     if len >= 13 {
                         let hour = i32::from_str_radix(&s[11..13], 10).unwrap();
                         if hour < 0 || hour > 23 {
-                            return Err(DateTimeParseError::new("hour must be between 0 and 23"));
+                            return Err(DateTimeParseError::new(
+                                "hour must be between 0 and 23",
+                            ));
                         }
                         datetime.hour = Some(hour);
 
                         if len >= 16 {
-                            let minute = i32::from_str_radix(&s[14..16], 10).unwrap();
+                            let minute =
+                                i32::from_str_radix(&s[14..16], 10).unwrap();
                             if minute < 0 || minute > 59 {
                                 return Err(DateTimeParseError::new(
                                     "minute must be between 0 and 59",
@@ -216,7 +225,9 @@ impl TryFrom<&str> for DateTime {
                             datetime.minute = Some(minute);
 
                             if len >= 19 {
-                                let second = i32::from_str_radix(&s[17..19], 10).unwrap();
+                                let second =
+                                    i32::from_str_radix(&s[17..19], 10)
+                                        .unwrap();
                                 if second < 0 || second > 59 {
                                     return Err(DateTimeParseError::new(
                                         "second must be between 0 and 59",
@@ -246,9 +257,14 @@ impl From<DateTime> for String {
                                     "{:04}-{:02}-{:02}T{:02}:{:02}:{:02}",
                                     y, m, d, h, min, s
                                 ),
-                                None => format!("{:04}-{:02}-{:02}T{:02}:{:02}", y, m, d, h, min),
+                                None => format!(
+                                    "{:04}-{:02}-{:02}T{:02}:{:02}",
+                                    y, m, d, h, min
+                                ),
                             },
-                            None => format!("{:04}-{:02}-{:02}T{:02}", y, m, d, h),
+                            None => {
+                                format!("{:04}-{:02}-{:02}T{:02}", y, m, d, h)
+                            }
                         },
                         None => format!("{:04}-{:02}-{:02}", y, m, d),
                     },
@@ -542,7 +558,10 @@ impl Resource {
     ///
     /// Returns `None` if the content type for resource is not one of
     /// the content types defined in the catalog.
-    pub fn bibtex_type(&self, content_types: &IndexMap<String, BibtexType>) -> Option<BibtexType> {
+    pub fn bibtex_type(
+        &self,
+        content_types: &IndexMap<String, BibtexType>,
+    ) -> Option<BibtexType> {
         match &self.content {
             Some(c) => Some(match content_types.get(c) {
                 Some(ct) => ct.clone(),

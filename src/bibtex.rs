@@ -86,9 +86,11 @@ impl Resource {
 
         match self.bibtex_type(content_types) {
             Some(bt) => {
-                let mut bibtex_type_string = serde_json::to_string(&bt).unwrap();
-                bibtex_type_string =
-                    bibtex_type_string[1..bibtex_type_string.len() - 1].to_string();
+                let mut bibtex_type_string =
+                    serde_json::to_string(&bt).unwrap();
+                bibtex_type_string = bibtex_type_string
+                    [1..bibtex_type_string.len() - 1]
+                    .to_string();
                 bibtex_entry.push_str(
                     format!(
                         "{}{}{{{},\n",
@@ -98,10 +100,22 @@ impl Resource {
                     )
                     .as_str(),
                 );
-                bibtex_entry.push_str(&bibtex_serialize_field("title", Some(self.title.clone())));
-                bibtex_entry.push_str(&bibtex_serialize_field("subtitle", self.subtitle.clone()));
-                bibtex_entry.push_str(&bibtex_serialize_names("author", self.author.clone()));
-                bibtex_entry.push_str(&bibtex_serialize_names("editor", self.editor.clone()));
+                bibtex_entry.push_str(&bibtex_serialize_field(
+                    "title",
+                    Some(self.title.clone()),
+                ));
+                bibtex_entry.push_str(&bibtex_serialize_field(
+                    "subtitle",
+                    self.subtitle.clone(),
+                ));
+                bibtex_entry.push_str(&bibtex_serialize_names(
+                    "author",
+                    self.author.clone(),
+                ));
+                bibtex_entry.push_str(&bibtex_serialize_names(
+                    "editor",
+                    self.editor.clone(),
+                ));
                 bibtex_entry.push_str(&bibtex_serialize_field(
                     "date",
                     match &self.date {
@@ -113,9 +127,18 @@ impl Resource {
                         None => None,
                     },
                 ));
-                bibtex_entry.push_str(&bibtex_serialize_field("edition", self.edition.clone()));
-                bibtex_entry.push_str(&bibtex_serialize_field("version", self.version.clone()));
-                bibtex_entry.push_str(&bibtex_serialize_field("publisher", self.publisher.clone()));
+                bibtex_entry.push_str(&bibtex_serialize_field(
+                    "edition",
+                    self.edition.clone(),
+                ));
+                bibtex_entry.push_str(&bibtex_serialize_field(
+                    "version",
+                    self.version.clone(),
+                ));
+                bibtex_entry.push_str(&bibtex_serialize_field(
+                    "publisher",
+                    self.publisher.clone(),
+                ));
                 // Organization is used to populate BibLaTeX's
                 // organization and institution fields. The reason is
                 // that I don't understand why these are both
@@ -233,12 +256,16 @@ mod tests {
     #[test]
     fn test_bibtex_serialize_field() {
         assert!(
-            bibtex_serialize_field("publisher", Some(String::from("John Wiley & Sons")))
-                == String::from("    publisher={John Wiley \\& Sons},\n")
+            bibtex_serialize_field(
+                "publisher",
+                Some(String::from("John Wiley & Sons"))
+            ) == String::from("    publisher={John Wiley \\& Sons},\n")
         );
         assert!(
-            bibtex_serialize_field("publisher", Some(String::from(r"John Wiley \& Sons")))
-                == String::from("    publisher={John Wiley \\& Sons},\n")
+            bibtex_serialize_field(
+                "publisher",
+                Some(String::from(r"John Wiley \& Sons"))
+            ) == String::from("    publisher={John Wiley \\& Sons},\n")
         );
     }
 }

@@ -56,7 +56,8 @@ fn librarian_fuzzy_search(catalog: &Catalog, query: &str) {
     });
 
     matching_resources.sort_by(|(s1, _), (s2, _)| s2.partial_cmp(&s1).unwrap());
-    let resources: Vec<&Resource> = matching_resources.iter().map(|(_, r)| r).cloned().collect();
+    let resources: Vec<&Resource> =
+        matching_resources.iter().map(|(_, r)| r).cloned().collect();
 
     serde_json::to_writer_pretty(std::io::stdout().lock(), &resources).unwrap();
 }
