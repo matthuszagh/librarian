@@ -509,6 +509,11 @@ pub fn librarian_catalog(
             // current resource, delete the current resource.
             if resources.contains_key(&content_sha) {
                 let metadata = std::fs::metadata(file.path()).unwrap();
+                println!(
+                    "{:?} is already a resource ({:?}). Removing duplicate.",
+                    file.path(),
+                    content_sha
+                );
                 if metadata.is_dir() {
                     std::fs::remove_dir_all(file.path()).unwrap();
                 } else {
