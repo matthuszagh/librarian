@@ -329,7 +329,6 @@ fn directory_recursive_sha1(directory_path: &PathBuf, hasher: &mut Sha1) {
             f.path()
                 .strip_prefix(directory_path)
                 .unwrap()
-                .clone()
                 .to_str()
                 .unwrap()
                 .as_bytes(),
