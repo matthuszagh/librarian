@@ -40,11 +40,7 @@ impl Catalog {
     /// removed. When set to "true", automatically remove all orphans
     /// without prompting. When set to "false", automatically keep all
     /// orphans without prompting.
-    pub fn update(
-        &mut self,
-        resources: &IndexMap<String, PathBuf>,
-        remove_orphans: &str,
-    ) {
+    pub fn update(&mut self, resources: &IndexMap<String, PathBuf>, remove_orphans: &str) {
         // Create a hashmap of all cataloged resources for fast
         // lookup. The first entry of the hashmap is the initial checksum
         // of the resource, which is used to determine whether a resource
@@ -58,12 +54,8 @@ impl Catalog {
         // remove these from the catalog.
         let mut orphaned_catalog_resources = HashSet::<String>::new();
         for resource in &self.resources {
-            catalog_resources.insert(
-                resource.historical_checksums[0].clone(),
-                resource.clone(),
-            );
-            orphaned_catalog_resources
-                .insert(resource.historical_checksums[0].clone());
+            catalog_resources.insert(resource.historical_checksums[0].clone(), resource.clone());
+            orphaned_catalog_resources.insert(resource.historical_checksums[0].clone());
         }
 
         // Hashmap of document types, where the key is the extension
@@ -76,8 +68,7 @@ impl Catalog {
             // Lower-case the document type extension and the actual
             // file extension (later) to ensure comparisons don't fail
             // as a result of case.
-            doc_types
-                .insert(value.extension.to_lowercase().clone(), key.clone());
+            doc_types.insert(value.extension.to_lowercase().clone(), key.clone());
         }
 
         // Catalog each new resource or update the checksum if the
@@ -102,8 +93,7 @@ impl Catalog {
                 None => {
                     // rename the file to the current SHA-1 contents
                     let checksum = checksum.to_string();
-                    let new_file_path =
-                        resource_path.parent().unwrap().join(checksum.clone());
+                    let new_file_path = resource_path.parent().unwrap().join(checksum.clone());
 
                     // If the file extension matches a document type
                     // extension, initialize the document type to
@@ -139,8 +129,7 @@ impl Catalog {
                             doc_type = None;
                         }
                     };
-                    std::fs::rename(resource_path, new_file_path.clone())
-                        .unwrap();
+                    std::fs::rename(resource_path, new_file_path.clone()).unwrap();
 
                     catalog_resources.insert(
                         checksum.clone(),
@@ -227,11 +216,9 @@ impl Catalog {
             if title_cmp == Ordering::Equal {
                 let date_cmp = a.date.partial_cmp(&b.date).unwrap();
                 if date_cmp == Ordering::Equal {
-                    let edition_cmp =
-                        a.edition.partial_cmp(&b.edition).unwrap();
+                    let edition_cmp = a.edition.partial_cmp(&b.edition).unwrap();
                     if edition_cmp == Ordering::Equal {
-                        let version_cmp =
-                            a.version.partial_cmp(&b.version).unwrap();
+                        let version_cmp = a.version.partial_cmp(&b.version).unwrap();
                         if version_cmp == Ordering::Equal {
                             a.volume.partial_cmp(&b.volume).unwrap()
                         } else {
@@ -295,18 +282,23 @@ fn file_sha1(filepath: &PathBuf, hasher: &mut Sha1) {
     // Read the file in 0x4000 byte chunks to limit the total memory
     // allocation at any given time.
     let chunk_size = 0x4000;
-    let mut f = File::open(filepath).expect("failed to open file");
-    loop {
-        let mut chunk = Vec::<u8>::with_capacity(chunk_size);
-        let bytes_read = std::io::Read::by_ref(&mut f)
-            .take(chunk_size as u64)
-            .read_to_end(&mut chunk)
-            .expect("failed to read from file");
-        hasher.update(chunk);
-        if bytes_read < chunk_size {
-            break;
+    match File::open(filepath) {
+        // don't compute the checksum of unreadable files
+        Err(_) => {
+            return;
         }
-    }
+        Ok(mut f) => loop {
+            let mut chunk = Vec::<u8>::with_capacity(chunk_size);
+            let bytes_read = std::io::Read::by_ref(&mut f)
+                .take(chunk_size as u64)
+                .read_to_end(&mut chunk)
+                .expect("failed to read from file");
+            hasher.update(chunk);
+            if bytes_read < chunk_size {
+                break;
+            }
+        },
+    };
 }
 
 /// Compute a SHA1 checksum for the contents of a directory.
@@ -323,20 +315,27 @@ fn directory_recursive_sha1(directory_path: &PathBuf, hasher: &mut Sha1) {
         .sort_by_file_name()
         .into_iter()
     {
-        let f = f.unwrap();
-        // First, incorporate the file name.
-        hasher.update(
-            f.path()
-                .strip_prefix(directory_path)
-                .unwrap()
-                .to_str()
-                .unwrap()
-                .as_bytes(),
-        );
-        // Then, if the file is a file type, also incorporate its
-        // contents.
-        if f.path().is_file() {
-            file_sha1(&f.into_path(), hasher);
+        match f {
+            // ignore inaccessible directories
+            Err(_) => {
+                return;
+            }
+            Ok(f) => {
+                // First, incorporate the file name.
+                hasher.update(
+                    f.path()
+                        .strip_prefix(directory_path)
+                        .unwrap()
+                        .to_str()
+                        .unwrap()
+                        .as_bytes(),
+                );
+                // Then, if the file is a file type, also incorporate its
+                // contents.
+                if f.path().is_file() {
+                    file_sha1(&f.into_path(), hasher);
+                }
+            }
         }
     }
 }
@@ -430,8 +429,7 @@ pub fn librarian_catalog(
         .into_iter()
         .for_each(|f| {
             let file = f.unwrap();
-            let file_name: String =
-                file.file_name().to_str().unwrap().to_string();
+            let file_name: String = file.file_name().to_str().unwrap().to_string();
 
             cache_orphans.remove(&file_name);
 
@@ -458,8 +456,7 @@ pub fn librarian_catalog(
                                 {
                                     cache_invalid = true;
                                 } else {
-                                    cache_checksum =
-                                        cache_data.checksum.clone();
+                                    cache_checksum = cache_data.checksum.clone();
                                 }
                             }
                             Err(_) => {
@@ -519,8 +516,7 @@ pub fn librarian_catalog(
                     std::fs::remove_file(file.path()).unwrap();
                 }
             } else {
-                resources
-                    .insert(content_sha, file.clone().path().to_path_buf());
+                resources.insert(content_sha, file.clone().path().to_path_buf());
             }
         });
 
