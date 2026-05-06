@@ -391,6 +391,15 @@ The primary motivation for me not to use a separate cache file is that I hate it
 
 Another question that might come up is why I chose to store this cache file in the library directory rather than under ~/.config/librarian. One of my goals for librarian is that you should be free to move around your libraries without affecting the function of the tool. It was not immediately apparent to me how to accomplish this without the cache being in the library directory. Another motivating factor is that the cache is human-readable (it's also JSON) and it might be useful to version-control it. Maintaining it within the library directory makes this possible.
 
+** TODO why does librarian need to recompute checksums when content changes?
+:PROPERTIES:
+:ID: f75a49b1-45ba-4e48-aa84-0e8576a51a3d
+:END:
+What benefits does this provide?
+
+** TODO only consider tracked files in git directories
+Recomputing checksums would be faster if librarian only considered tracked files in directories managed by git when content changes. However, this depends on [[id:f75a49b1-45ba-4e48-aa84-0e8576a51a3d][why does librarian need to recompute checksums when content changes?]].
+
 * Configuration File
 ** TODO authors
 I think probably the best syntax for this is:
